@@ -1,0 +1,22 @@
+# rate-limit-paths.dg
+#
+# TMSH datagroup for Scenario 3.3 — Dynamic path-to-profile mapping.
+# Import with: tmsh load sys config merge file rate-limit-paths.dg
+#
+# Format: URI prefix → rate limit profile name
+# Profile names must match the thresholds in policy-triggered-rate-limit.tcl
+
+ltm data-group internal rate_limit_paths {
+    records {
+        /api/login { data "strict" }
+        /api/register { data "strict" }
+        /checkout { data "strict" }
+        /api/password-reset { data "strict" }
+        /search { data "medium" }
+        /api/ { data "medium" }
+        /products { data "medium" }
+        /downloads/ { data "permissive" }
+    }
+    type string
+    description "URI prefix to rate limit profile mapping. Edit records to add/remove paths without policy changes."
+}

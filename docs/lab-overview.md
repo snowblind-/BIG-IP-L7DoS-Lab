@@ -1,11 +1,12 @@
 # BIG-IP L7DoS Lab Overview
 
-This lab demonstrates two primary methods for mitigating Layer 7 Denial of Service (L7DoS) and HTTP rate limiting on F5 BIG-IP:
+This lab demonstrates three methods for mitigating Layer 7 Denial of Service (L7DoS) and HTTP rate limiting on F5 BIG-IP:
 
-| Method | Module | Best For |
-|--------|--------|----------|
-| iRules | LTM | Custom, granular, per-rule logic without ASM license |
-| ASM / Advanced WAF | ASM | Policy-driven, behavioral, ML-based detection at scale |
+| Method | Module | License | Best For |
+|--------|--------|---------|----------|
+| iRules | 1 | LTM | Custom, granular, per-rule logic |
+| LTM Policies | 2 | LTM | Declarative path-based enforcement, no code required |
+| ASM / Advanced WAF | 3 | ASM | Policy-driven, behavioral, ML-based detection at scale |
 
 ## Lab Scenarios
 
@@ -17,13 +18,21 @@ This lab demonstrates two primary methods for mitigating Layer 7 Denial of Servi
 | 1.3 | Concurrent connection limiting per client |
 | 1.4 | Sliding window rate limiter with HTTP 429 response |
 
-### Module 2 — ASM / Advanced WAF DoS Protection
+### Module 2 — LTM Policy Path-Based Rate Limiting
 | Scenario | Description |
 |----------|-------------|
-| 2.1 | TPS-based DoS profile (by URL and by source IP) |
-| 2.2 | Behavioral DoS (BADoS) — anomaly detection |
-| 2.3 | Proactive Bot Defense + JS challenge |
-| 2.4 | Stress-based detection with server health signal |
+| 2.1 | Path-based rate filter (native traffic shaping per URI) |
+| 2.2 | Policy-triggered iRule event rate limiting |
+| 2.3 | Policy + datagroup for dynamic path configuration |
+| 2.4 | Policy reject action for known-bad paths |
+
+### Module 3 — ASM / Advanced WAF DoS Protection
+| Scenario | Description |
+|----------|-------------|
+| 3.1 | TPS-based DoS profile (by URL and by source IP) |
+| 3.2 | Behavioral DoS (BADoS) — anomaly detection |
+| 3.3 | Proactive Bot Defense + JS challenge |
+| 3.4 | Stress-based detection with server health signal |
 
 ## Lab Environment
 

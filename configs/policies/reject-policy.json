@@ -1,0 +1,44 @@
+{
+  "class": "ADC",
+  "schemaVersion": "3.28.0",
+  "remark": "Scenario 3.4 — LTM Policy reject action for known-bad URI paths",
+  "Lab_L7DoS": {
+    "class": "Tenant",
+    "L7DoS_App": {
+      "class": "Application",
+      "template": "http",
+      "lab_reject_policy": {
+        "class": "Endpoint_Policy",
+        "rules": [
+          {
+            "name": "reject-scanner-bait",
+            "conditions": [
+              {
+                "type": "httpUri",
+                "path": {
+                  "operand": "starts-with",
+                  "values": [
+                    "/wp-admin",
+                    "/wp-login",
+                    "/.env",
+                    "/.git",
+                    "/phpmyadmin",
+                    "/admin/",
+                    "/xmlrpc.php",
+                    "/config.php"
+                  ]
+                }
+              }
+            ],
+            "actions": [
+              {
+                "type": "drop",
+                "event": "request"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

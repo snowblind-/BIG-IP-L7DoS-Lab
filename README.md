@@ -4,13 +4,11 @@ A lab environment for testing, demonstrating, and analyzing BIG-IP Layer 7 Denia
 
 ## Lab Overview
 
-This lab covers BIG-IP's L7DoS mitigation capabilities including:
+This lab covers three BIG-IP L7DoS mitigation methods across eight scenarios:
 
-- **Behavioral DoS (BADoS)** — machine-learning based anomaly detection
-- **Proactive Bot Defense** — JavaScript challenge / CAPTCHA enforcement
-- **TPS-based rate limiting** — per-URL, per-IP, and per-source thresholds
-- **Stress-based detection** — server-side health signal integration
-- **iRule-based mitigations** — custom enforcement logic
+- **iRule-based rate limiting** — per-IP, per-URI, concurrent connection, and sliding window
+- **LTM Policy path-based rate limiting** — declarative path matching with rate filters, iRule triggers, and datagroup-driven dynamic config
+- **ASM / Advanced WAF DoS protection** — TPS thresholds, Behavioral DoS (BADoS), Proactive Bot Defense, and stress-based detection
 
 ## Directory Structure
 
@@ -43,13 +41,29 @@ BIG-IP-L7DoS-Lab/
 
 ## Lab Scenarios
 
+### Module 1 — iRules
 | Scenario | Description | Config |
 |----------|-------------|--------|
-| 01 | TPS threshold triggers | `configs/profiles/tps-basic.json` |
-| 02 | BADoS behavioral detection | `configs/profiles/bados-profile.json` |
-| 03 | Proactive Bot Defense | `configs/profiles/bot-defense.json` |
-| 04 | Stress-based + server health | `configs/profiles/stress-based.json` |
-| 05 | iRule custom enforcement | `configs/irules/` |
+| 1.1 | Per-IP rate limiting | `configs/irules/rate-limit-per-ip.tcl` |
+| 1.2 | Per-URI rate limiting | `configs/irules/rate-limit-per-uri.tcl` |
+| 1.3 | Concurrent connection limit | `configs/irules/concurrent-conn-limit.tcl` |
+| 1.4 | Sliding window 429 | `configs/irules/sliding-window-429.tcl` |
+
+### Module 2 — LTM Policies
+| Scenario | Description | Config |
+|----------|-------------|--------|
+| 2.1 | Path-based rate filter | `configs/policies/rate-filters.sh` |
+| 2.2 | Policy + iRule event trigger | `configs/policies/path-rate-policy.json` |
+| 2.3 | Policy + datagroup (dynamic) | `configs/policies/datagroup-rate-policy.json` |
+| 2.4 | Reject known-bad paths | `configs/policies/reject-policy.json` |
+
+### Module 3 — ASM / Advanced WAF
+| Scenario | Description | Config |
+|----------|-------------|--------|
+| 3.1 | TPS-based DoS profile | `configs/profiles/tps-dos-profile.json` |
+| 3.2 | Behavioral DoS (BADoS) | `configs/profiles/bados-profile.json` |
+| 3.3 | Proactive Bot Defense | `configs/profiles/bot-defense-profile.json` |
+| 3.4 | Stress-based detection | *(see docs/module3-asm-waf.md)* |
 
 ## Important Notice
 

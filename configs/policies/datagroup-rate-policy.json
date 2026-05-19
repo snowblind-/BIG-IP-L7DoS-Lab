@@ -1,0 +1,41 @@
+{
+  "class": "ADC",
+  "schemaVersion": "3.28.0",
+  "remark": "Scenario 3.3 — LTM Policy using datagroup for dynamic path classification",
+  "Lab_L7DoS": {
+    "class": "Tenant",
+    "L7DoS_App": {
+      "class": "Application",
+      "template": "http",
+      "lab_datagroup_rate_policy": {
+        "class": "Endpoint_Policy",
+        "rules": [
+          {
+            "name": "datagroup-match",
+            "conditions": [
+              {
+                "type": "httpUri",
+                "path": {
+                  "operand": "starts-with",
+                  "datagroup": {
+                    "bigip": "/Common/rate_limit_paths"
+                  }
+                }
+              }
+            ],
+            "actions": [
+              {
+                "type": "httpHeader",
+                "event": "request",
+                "replace": {
+                  "name": "X-RateLimit-Profile",
+                  "value": "datagroup"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "class": "ADC",
+  "schemaVersion": "3.28.0",
+  "remark": "Scenario 3.2 — LTM Policy triggering iRule-based rate limiting per path",
+  "Lab_L7DoS": {
+    "class": "Tenant",
+    "L7DoS_App": {
+      "class": "Application",
+      "template": "http",
+      "lab_path_rate_policy": {
+        "class": "Endpoint_Policy",
+        "rules": [
+          {
+            "name": "strict-paths",
+            "conditions": [
+              {
+                "type": "httpUri",
+                "pathSegment": {
+                  "operand": "starts-with",
+                  "values": ["/api/login", "/api/register", "/checkout"]
+                }
+              }
+            ],
+            "actions": [
+              {
+                "type": "httpHeader",
+                "event": "request",
+                "replace": {
+                  "name": "X-RateLimit-Profile",
+                  "value": "strict"
+                }
+              }
+            ]
+          },
+          {
+            "name": "medium-paths",
+            "conditions": [
+              {
+                "type": "httpUri",
+                "pathSegment": {
+                  "operand": "starts-with",
+                  "values": ["/search", "/api/"]
+                }
+              }
+            ],
+            "actions": [
+              {
+                "type": "httpHeader",
+                "event": "request",
+                "replace": {
+                  "name": "X-RateLimit-Profile",
+                  "value": "medium"
+                }
+              }
+            ]
+          },
+          {
+            "name": "default-permissive",
+            "conditions": [],
+            "actions": [
+              {
+                "type": "httpHeader",
+                "event": "request",
+                "replace": {
+                  "name": "X-RateLimit-Profile",
+                  "value": "permissive"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
