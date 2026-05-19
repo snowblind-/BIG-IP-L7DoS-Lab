@@ -1,0 +1,21 @@
+# Secrets and credentials
+*.key
+*.pem
+*.p12
+*.pfx
+credentials.json
+secrets.env
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Logs
+logs/
+*.log
