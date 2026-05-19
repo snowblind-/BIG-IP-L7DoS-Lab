@@ -1,0 +1,44 @@
+{
+  "class": "ADC",
+  "schemaVersion": "3.28.0",
+  "remark": "Scenario 2.1 — TPS-Based DoS Profile",
+  "Lab_L7DoS": {
+    "class": "Tenant",
+    "L7DoS_App": {
+      "class": "Application",
+      "template": "http",
+      "lab_dos_tps_profile": {
+        "class": "DOS_Profile",
+        "application": {
+          "heavyURLProtection": {
+            "enabled": false
+          },
+          "scrubbingDuration": 42,
+          "remoteTriggeredBlackHoleFormatVersion": 2,
+          "captchaResponsePage": {
+            "type": "default"
+          },
+          "rateLimiting": {
+            "enabled": true
+          },
+          "tpsBased": {
+            "mode": "blocking",
+            "sourceIPBased": {
+              "enabled": true,
+              "rateIncreaseThreshold": 500,
+              "rateThreshold": 100,
+              "blockingDuration": 60
+            },
+            "urlBased": {
+              "enabled": true,
+              "rateIncreaseThreshold": 200,
+              "rateThreshold": 1000,
+              "blockingDuration": 60
+            }
+          },
+          "behavioralDetectionMode": "disabled"
+        }
+      }
+    }
+  }
+}

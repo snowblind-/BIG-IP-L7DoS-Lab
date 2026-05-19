@@ -1,0 +1,34 @@
+{
+  "class": "ADC",
+  "schemaVersion": "3.28.0",
+  "remark": "Scenario 2.3 — Proactive Bot Defense Profile",
+  "Lab_L7DoS": {
+    "class": "Tenant",
+    "L7DoS_App": {
+      "class": "Application",
+      "template": "http",
+      "lab_dos_bot_profile": {
+        "class": "DOS_Profile",
+        "application": {
+          "behavioralDetectionMode": "disabled",
+          "tpsBased": {
+            "mode": "disabled"
+          },
+          "botDefense": {
+            "mode": "proactive",
+            "browserChallengeReplyTimeout": 10,
+            "allowBrowserAccessWithoutChallengeInSeconds": 0,
+            "mobileApplicationsAllowed": false
+          },
+          "captchaResponsePage": {
+            "type": "custom",
+            "response": {
+              "type": "redirect",
+              "redirectUrl": "/captcha"
+            }
+          }
+        }
+      }
+    }
+  }
+}

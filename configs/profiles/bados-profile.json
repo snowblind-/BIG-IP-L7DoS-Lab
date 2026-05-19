@@ -1,0 +1,38 @@
+{
+  "class": "ADC",
+  "schemaVersion": "3.28.0",
+  "remark": "Scenario 2.2 — Behavioral DoS (BADoS) Profile",
+  "Lab_L7DoS": {
+    "class": "Tenant",
+    "L7DoS_App": {
+      "class": "Application",
+      "template": "http",
+      "lab_dos_bados_profile": {
+        "class": "DOS_Profile",
+        "application": {
+          "behavioralDetectionMode": "blocking",
+          "badActorDetection": true,
+          "requestBlockingMode": "block-always",
+          "tpsBased": {
+            "mode": "disabled"
+          },
+          "stressBased": {
+            "latencyBasedDetection": {
+              "enabled": true,
+              "thresholdByPercentage": 200,
+              "minimumTPS": 10
+            },
+            "tpsBasedDetection": {
+              "enabled": true,
+              "thresholdByPercentage": 500
+            }
+          },
+          "heavyURLProtection": {
+            "enabled": true,
+            "automaticDetection": true
+          }
+        }
+      }
+    }
+  }
+}
