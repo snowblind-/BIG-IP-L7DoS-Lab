@@ -35,7 +35,7 @@ but offers behavioral detection that adapts to traffic patterns automatically.
    :maxdepth: 1
    :caption: Labs
 
-   lab1/lab1
-   lab2/lab2
-   lab3/lab3
-   lab4/lab4
+   lab1/lab1-tps-based
+   lab2/lab2-behavioral-dos
+   lab3/lab3-bot-defense
+   lab4/lab4-stress-based

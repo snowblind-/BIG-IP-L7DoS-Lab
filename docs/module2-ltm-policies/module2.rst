@@ -34,7 +34,7 @@ protection (Module 3).
    :maxdepth: 1
    :caption: Labs
 
-   lab1/lab1
-   lab2/lab2
-   lab3/lab3
-   lab4/lab4
+   lab1/lab1-rate-filter
+   lab2/lab2-policy-irule
+   lab3/lab3-datagroup
+   lab4/lab4-reject-bad-paths
