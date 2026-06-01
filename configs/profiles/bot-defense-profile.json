@@ -1,7 +1,7 @@
 {
   "class": "ADC",
   "schemaVersion": "3.28.0",
-  "remark": "Scenario 2.3 — Proactive Bot Defense Profile",
+  "remark": "Scenario 3.3 - Proactive Bot Defense (DoS profile) with bot-signature category exceptions",
   "Lab_L7DoS": {
     "class": "Tenant",
     "L7DoS_App": {
@@ -14,18 +14,32 @@
           "tpsBased": {
             "mode": "disabled"
           },
-          "botDefense": {
-            "mode": "proactive",
-            "browserChallengeReplyTimeout": 10,
-            "allowBrowserAccessWithoutChallengeInSeconds": 0,
-            "mobileApplicationsAllowed": false
+          "captchaResponse": {
+            "first": "Are you a robot&quest;<br><br>%DOSL7.captcha.image% %DOSL7.captcha.change%<br><b>What code is in the image&quest;</b>%DOSL7.captcha.solution%<br>%DOSL7.captcha.submit%<br><br>Your support ID is: %DOSL7.captcha.support_id%.",
+            "failure": "Incorrect&period; Please try again&period;<br><br>%DOSL7.captcha.image% %DOSL7.captcha.change%<br><b>What code is in the image&quest;</b>%DOSL7.captcha.solution%<br>%DOSL7.captcha.submit%<br><br>Your support ID is: %DOSL7.captcha.support_id%."
           },
-          "captchaResponsePage": {
-            "type": "custom",
-            "response": {
-              "type": "redirect",
-              "redirectUrl": "/captcha"
-            }
+          "botDefense": {
+            "mode": "always",
+            "blockSuspiscousBrowsers": true,
+            "issueCaptchaChallenge": true,
+            "gracePeriod": 10,
+            "crossDomainRequests": "validate-bulk",
+            "siteDomains": ["lab.example.com"],
+            "externalDomains": ["cdn.example.net"],
+            "urlWhitelist": ["/health", "/favicon.ico"]
+          },
+          "botSignatures": {
+            "checkingEnabled": true,
+            "blockedCategories": [
+              { "bigip": "/Common/DOS Tool" },
+              { "bigip": "/Common/HTTP Library" },
+              { "bigip": "/Common/Network Scanner" }
+            ],
+            "reportedCategories": [
+              { "bigip": "/Common/Search Engine" },
+              { "bigip": "/Common/Crawler" },
+              { "bigip": "/Common/Site Monitor" }
+            ]
           }
         }
       }

@@ -62,7 +62,7 @@ BIG-IP-L7DoS-Lab/
 |----------|-------------|--------|
 | 3.1 | TPS-based DoS profile | `configs/profiles/tps-dos-profile.json` |
 | 3.2 | Behavioral DoS (BADoS) | `configs/profiles/bados-profile.json` |
-| 3.3 | Proactive Bot Defense | `configs/profiles/bot-defense-profile.json` |
+| 3.3 | Proactive Bot Defense | `configs/profiles/bot-defense-profile.json` (DoS profile) + `configs/profiles/bot-defense-standalone.conf` (standalone profile: verify before/after, per-bot rate limits) |
 | 3.4 | Stress-based detection | *(see docs/module3-asm-waf.md)* |
 
 ## Important Notice
