@@ -70,7 +70,7 @@ Task 2: Verify Baseline Behavior
 #. Send five sequential requests and confirm all return **200**::
 
       for i in $(seq 1 5); do
-          curl -so /dev/null -w "%{http_code}\n" http://10.1.10.100/
+          curl -so /dev/null -w "%{http_code}\n" http://10.1.10.61/
       done
 
    Expected output::
