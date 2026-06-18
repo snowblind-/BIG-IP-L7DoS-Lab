@@ -65,7 +65,7 @@ Task 1: Upload and Attach the iRule
 Task 2: Verify Baseline Behavior
 ---------------------------------
 
-#. SSH to the attack client (``10.1.10.50``).
+#. SSH to the kali attack client (``10.1.1.7``).
 
 #. Send five sequential requests and confirm all return **200**::
 
@@ -86,7 +86,7 @@ Task 3: Trigger the Rate Limit
 
 #. From the attack client, run a short HTTP flood that exceeds the threshold::
 
-      ab -n 500 -c 50 http://10.1.10.100/
+      ab -n 500 -c 50 http://10.1.10.61/
 
 #. Observe the response codes in the ``ab`` summary. You should see a mix of
    **200** (within threshold) and **429** (threshold exceeded) responses.
@@ -94,7 +94,7 @@ Task 3: Trigger the Rate Limit
 #. Confirm BIG-IP is responding directly by checking that the pool member
    access log shows fewer requests than ``ab`` sent::
 
-      ssh root@10.1.20.10 tail -20 /var/log/nginx/access.log
+      ssh root@10.1.1.5 tail -20 /var/log/nginx/access.log
 
 .. important::
 
