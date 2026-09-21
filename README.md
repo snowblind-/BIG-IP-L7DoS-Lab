@@ -48,6 +48,7 @@ BIG-IP-L7DoS-Lab/
 | 1.2 | Per-URI rate limiting | `configs/irules/rate-limit-per-uri.tcl` |
 | 1.3 | Concurrent connection limit | `configs/irules/concurrent-conn-limit.tcl` |
 | 1.4 | Sliding window 429 | `configs/irules/sliding-window-429.tcl` |
+| 1.5 | Custom L7 DoS signature (header-absence rate limit) | `configs/irules/custom-l7dos-signature.tcl` |
 
 ### Module 2 — LTM Policies
 | Scenario | Description | Config |
