@@ -47,21 +47,21 @@ Task 2: Test the Connection Limit
    endpoint. If no slow endpoint exists, use ``sleep`` to hold connections::
 
       for i in $(seq 1 30); do
-          curl -s --max-time 30 http://10.1.10.100/slow &
+          curl -s --max-time 30 http://10.1.10.61/slow &
       done
       wait
 
 #. In a second terminal, check how many connections BIG-IP is tracking::
 
-      ssh admin@10.1.1.245 \
-        "tmsh show sys connection cs-server-addr 10.1.10.100" | wc -l
+      ssh admin@10.1.1.11 \
+        "tmsh show sys connection cs-server-addr 10.1.10.61" | wc -l
 
    The count should not exceed ``static::max_conns`` (20) from the single
    client IP.
 
 #. Attempt a new connection from the same client while the 20 are held::
 
-      curl -v http://10.1.10.100/
+      curl -v http://10.1.10.61/
 
    Expected result: the connection is **reset** immediately (TCP RST).
 
@@ -74,7 +74,7 @@ Task 3: Verify Recovery
 
 #. Immediately send a new request::
 
-      curl -so /dev/null -w "%{http_code}\n" http://10.1.10.100/
+      curl -so /dev/null -w "%{http_code}\n" http://10.1.10.61/
 
    Expected result: **200** — the connection count drops as clients disconnect,
    and new connections are accepted again.

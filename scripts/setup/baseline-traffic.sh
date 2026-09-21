@@ -6,7 +6,7 @@
 #
 # Run for at least 10 minutes before starting Scenario 2.2.
 
-TARGET="${1:-http://10.1.10.100}"
+TARGET="${1:-http://10.1.10.61}"
 DURATION="${2:-600}"   # seconds (default: 10 min)
 CONCURRENCY=5
 RPS=20

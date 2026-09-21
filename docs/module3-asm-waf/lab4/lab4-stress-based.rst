@@ -66,7 +66,7 @@ Task 2: Establish a Latency Baseline
 #. Run the baseline traffic script to allow BIG-IP to learn normal server
    response times::
 
-      bash ~/lab/scripts/setup/baseline-traffic.sh http://10.1.10.100 300
+      bash ~/lab/scripts/setup/baseline-traffic.sh http://10.1.10.61 300
 
    Allow this to run for at least 5 minutes.
 
@@ -76,17 +76,17 @@ Task 2: Establish a Latency Baseline
 Task 3: Simulate a Slow Server Under Attack
 --------------------------------------------
 
-#. On the web server (``10.1.20.10``), start a script that introduces
+#. On the web server (``10.1.20.5``), start a script that introduces
    artificial latency for high-concurrency requests (simulating a server
    under load)::
 
-      ssh root@10.1.20.10 \
+      ssh root@10.1.20.5 \
         "echo 'limit_req_zone \$binary_remote_addr zone=slow:10m rate=5r/s;' \
          >> /etc/nginx/nginx.conf && nginx -s reload"
 
 #. From the attack client, generate a high-concurrency load::
 
-      bash ~/lab/scripts/attack/http-flood.sh http://10.1.10.100 60 80
+      bash ~/lab/scripts/attack/http-flood.sh http://10.1.10.61 60 80
 
 #. Observe in **Security > DoS Protection > DoS Overview**:
 
@@ -103,7 +103,7 @@ Task 4: Verify Proportional Throttling
 
       for i in $(seq 1 10); do
           curl -so /dev/null -w "Time: %{time_total}s Code: %{http_code}\n" \
-               http://10.1.10.100/
+               http://10.1.10.61/
           sleep 0.5
       done
 
@@ -119,7 +119,7 @@ Task 5: Clean Up
 
 #. Remove the artificial latency from the web server::
 
-      ssh root@10.1.20.10 \
+      ssh root@10.1.20.5 \
         "sed -i '/limit_req_zone/d' /etc/nginx/nginx.conf && nginx -s reload"
 
 #. Verify server response times return to baseline in the DoS Overview

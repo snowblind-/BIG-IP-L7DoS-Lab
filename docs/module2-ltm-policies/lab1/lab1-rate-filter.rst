@@ -16,7 +16,7 @@ Task 1: Create Rate Filter Traffic Classes
 
 #. SSH to the BIG-IP::
 
-      ssh admin@10.1.1.245
+      ssh admin@10.1.1.11
 
 #. Create three traffic classes representing different protection tiers::
 
@@ -113,13 +113,13 @@ Task 4: Test Bandwidth Shaping
 #. From the attack client, download a large file via the strict path and
    observe the capped rate::
 
-      curl -o /dev/null --progress-bar http://10.1.10.100/api/login-assets/bundle.js
+      curl -o /dev/null --progress-bar http://10.1.10.61/api/login-assets/bundle.js
 
    The download should be capped near **1 Mbps**.
 
 #. Download the same file via the permissive path::
 
-      curl -o /dev/null --progress-bar http://10.1.10.100/assets/bundle.js
+      curl -o /dev/null --progress-bar http://10.1.10.61/assets/bundle.js
 
    The download should be significantly faster (**up to 100 Mbps**).
 

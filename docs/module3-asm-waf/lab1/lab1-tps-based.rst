@@ -12,7 +12,7 @@ Task 1: Verify ASM is Provisioned
 
 #. SSH to the BIG-IP::
 
-      ssh admin@10.1.1.245
+      ssh admin@10.1.1.11
 
 #. Confirm ASM provisioning level is ``nominal`` or ``dedicated``::
 
@@ -91,11 +91,11 @@ Task 4: Generate Attack Traffic and Observe Blocking
 
 #. From the attack client, run a sustained high-rate flood::
 
-      wrk -t4 -c100 -d60s http://10.1.10.100/
+      wrk -t4 -c100 -d60s http://10.1.10.61/
 
    If ``wrk`` is not available::
 
-      ab -n 10000 -c 100 -t 60 http://10.1.10.100/
+      ab -n 10000 -c 100 -t 60 http://10.1.10.61/
 
 #. While the flood runs, open the BIG-IP TMUI and navigate to
    **Security > Event Logs > DoS > Application Events**.
@@ -104,7 +104,7 @@ Task 4: Generate Attack Traffic and Observe Blocking
 
    .. code-block:: text
 
-      [Blocked] Source IP 10.1.10.50 exceeded TPS threshold (105 TPS, limit 100)
+      [Blocked] Source IP 10.1.10.100 exceeded TPS threshold (105 TPS, limit 100)
       Duration: 60s | URL: / | Action: Block
 
 #. Navigate to **Security > Reporting > DoS > Dashboard** to see the
@@ -116,7 +116,7 @@ Task 5: Review Block Page Behavior
 #. While the flood is running (or immediately after), send a manual request
    from the attack client::
 
-      curl -v http://10.1.10.100/
+      curl -v http://10.1.10.61/
 
    The response should be the ASM block page with HTTP **200** (or a
    configured redirect) rather than the application content.

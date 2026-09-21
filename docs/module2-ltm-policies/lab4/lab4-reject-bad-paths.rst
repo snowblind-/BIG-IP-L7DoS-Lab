@@ -77,19 +77,19 @@ Task 3: Test Rejection of Known-Bad Paths
 
 #. Attempt to reach a WordPress admin path::
 
-      curl -v http://10.1.10.100/wp-admin/
+      curl -v http://10.1.10.61/wp-admin/
 
    Expected result: ``curl: (56) Recv failure: Connection reset by peer``
 
 #. Attempt to reach an exposed config file::
 
-      curl -v http://10.1.10.100/.env
+      curl -v http://10.1.10.61/.env
 
    Expected result: connection reset — no HTTP response.
 
 #. Confirm a legitimate path still works::
 
-      curl -so /dev/null -w "%{http_code}\n" http://10.1.10.100/
+      curl -so /dev/null -w "%{http_code}\n" http://10.1.10.61/
 
    Expected result: **200**
 
@@ -99,7 +99,7 @@ Task 4: Observe in BIG-IP Logs
 #. SSH to the BIG-IP and tail the LTM log while repeating a blocked
    request in a second terminal::
 
-      ssh admin@10.1.1.245 tail -f /var/log/ltm
+      ssh admin@10.1.1.11 tail -f /var/log/ltm
 
    Look for entries referencing the reset action from the policy.
 
@@ -116,7 +116,7 @@ Task 5: Add a New Blocked Path at Runtime
 
 #. Test::
 
-      curl -v http://10.1.10.100/actuator/env
+      curl -v http://10.1.10.61/actuator/env
 
    Expected result: connection reset.
 

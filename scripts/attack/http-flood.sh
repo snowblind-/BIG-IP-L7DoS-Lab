@@ -5,9 +5,9 @@
 # FOR AUTHORIZED LAB ENVIRONMENTS ONLY.
 #
 # Usage: ./http-flood.sh [target] [duration] [concurrency]
-# Example: ./http-flood.sh http://10.1.10.100 30 50
+# Example: ./http-flood.sh http://10.1.10.61 30 50
 
-TARGET="${1:-http://10.1.10.100}"
+TARGET="${1:-http://10.1.10.61}"
 DURATION="${2:-30}"
 CONCURRENCY="${3:-50}"
 

@@ -32,16 +32,16 @@ Lab Environment
 
 .. code-block:: text
 
-   [Attack Client]  10.1.10.50
+   [Attack Client]  10.1.10.100   (kali)
          |
          | HTTP / HTTPS
          v
-   [BIG-IP VE]      10.1.1.245 (mgmt)
-     Virtual Server: 10.1.10.100:80
-     Pool:           web-pool → 10.1.20.10:80
+   [BIG-IP VE]      10.1.1.11 (mgmt), 17.1.0.1
+     Virtual Server: 10.1.10.61:80
+     Pool:           web-pool → 10.1.20.5:80
          |
          v
-   [Web Server]     10.1.20.10
+   [Web Server]     10.1.20.5   (Hackazon)
 
 .. important::
 
@@ -52,9 +52,9 @@ Lab Environment
 Prerequisites
 -------------
 
-- BIG-IP VE 15.1 or later
+- BIG-IP VE 15.1 or later (lab blueprint uses 17.1.0.1)
 - ASM / Advanced WAF provisioned (required for Module 3 only)
-- TMUI access: ``https://10.1.1.245``
+- TMUI access: ``https://10.1.1.11``
 - SSH access to BIG-IP and the attack client
 - ``curl``, ``ab`` (apache2-utils), or ``wrk`` on the attack client
 

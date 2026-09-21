@@ -56,7 +56,7 @@ Task 2: Test an Unprotected Path
 
 #. Flood the home page — this path is **not** in the protected list::
 
-      ab -n 500 -c 50 http://10.1.10.100/
+      ab -n 500 -c 50 http://10.1.10.61/
 
    Expected result: all requests return **200**. The home page has no
    per-URI limit.
@@ -66,14 +66,14 @@ Task 3: Test a Protected Path
 
 #. Flood the login endpoint::
 
-      ab -n 200 -c 20 http://10.1.10.100/api/login
+      ab -n 200 -c 20 http://10.1.10.61/api/login
 
    Expected result: the first ~20 requests (within the 1-second window) return
    **200**; subsequent requests in the same window return **429**.
 
 #. Confirm the unprotected path is still available in the same second::
 
-      curl -so /dev/null -w "%{http_code}\n" http://10.1.10.100/
+      curl -so /dev/null -w "%{http_code}\n" http://10.1.10.61/
 
    Expected result: **200** — the ``/`` path is unaffected.
 
@@ -99,7 +99,7 @@ in the iRule definition.
 
 #. Verify the new path is now protected::
 
-      ab -n 100 -c 20 http://10.1.10.100/api/password-reset
+      ab -n 100 -c 20 http://10.1.10.61/api/password-reset
 
 .. important::
 

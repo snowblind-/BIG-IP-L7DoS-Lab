@@ -66,11 +66,11 @@ Task 2: Observe the Retry-After Response
 
 #. Flood the virtual server to exceed the threshold::
 
-      ab -n 200 -c 20 http://10.1.10.100/
+      ab -n 200 -c 20 http://10.1.10.61/
 
 #. Use ``curl -v`` to inspect the full HTTP 429 response headers::
 
-      curl -v http://10.1.10.100/ 2>&1 | grep -E "< HTTP|< Retry|< X-Rate"
+      curl -v http://10.1.10.61/ 2>&1 | grep -E "< HTTP|< Retry|< X-Rate"
 
    Expected output::
 
@@ -93,13 +93,13 @@ with a fixed window.
 
 #. Send 5 requests in rapid succession::
 
-      for i in $(seq 1 5); do curl -so /dev/null -w "%{http_code}\n" http://10.1.10.100/; done
+      for i in $(seq 1 5); do curl -so /dev/null -w "%{http_code}\n" http://10.1.10.61/; done
 
    All 5 return **200**.
 
 #. Immediately (within the same second) send 5 more::
 
-      for i in $(seq 1 5); do curl -so /dev/null -w "%{http_code}\n" http://10.1.10.100/; done
+      for i in $(seq 1 5); do curl -so /dev/null -w "%{http_code}\n" http://10.1.10.61/; done
 
    All 5 return **429** — the sliding window sees 10 requests in the last 5
    seconds, exceeding the threshold of 5.

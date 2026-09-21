@@ -9,7 +9,7 @@ directly from BIG-IP — the pool member is never contacted.
 Task 1: Upload and Attach the iRule
 ------------------------------------
 
-#. Log in to the BIG-IP TMUI at ``https://10.1.1.245``.
+#. Log in to the BIG-IP TMUI at ``https://10.1.1.11``.
 
 #. Navigate to **Local Traffic > iRules > iRule List**.
 
@@ -109,7 +109,7 @@ Task 4: Observe the Rate Limit Reset
 
       sleep 2
       for i in $(seq 1 5); do
-          curl -so /dev/null -w "%{http_code}\n" http://10.1.10.100/
+          curl -so /dev/null -w "%{http_code}\n" http://10.1.10.61/
       done
 
    Expected output::
