@@ -32,16 +32,15 @@ Lab Environment
 
 .. code-block:: text
 
-   [Attack Client]  10.1.10.100   (kali)
-         |
-         | HTTP / HTTPS
-         v
-   [BIG-IP VE]      10.1.1.11 (mgmt), 17.1.0.1
-     Virtual Server: 10.1.10.61:80
-     Pool:           web-pool → 10.1.20.5:80
-         |
-         v
-   [Web Server]     10.1.20.5   (Hackazon)
+   [Attack Client]              [BIG-IP VE 17.1.0.1]              [Backend]
+    kali 10.1.10.100 ──HTTP──▶  vs-lab-irules 10.1.10.61 ─┐
+                                vs-lab-ltm    10.1.10.62 ─┤
+                                vs-lab-dos    10.1.10.63 ─┼─▶ hackazon-pool
+                                vs-lab-bot    10.1.10.65 ─┘    10.1.20.5:80
+                                mgmt 10.1.1.11
+
+Each protection method runs on its own virtual server (see
+:doc:`setup/lab-topology`), all fronting the same Hackazon backend.
 
 .. important::
 
@@ -57,6 +56,12 @@ Prerequisites
 - TMUI access: ``https://10.1.1.11``
 - SSH access to BIG-IP and the attack client
 - ``curl``, ``ab`` (apache2-utils), or ``wrk`` on the attack client
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Setup
+
+   setup/lab-topology
 
 .. toctree::
    :maxdepth: 2

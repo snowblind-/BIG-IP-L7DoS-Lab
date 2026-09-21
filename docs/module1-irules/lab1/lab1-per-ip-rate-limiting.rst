@@ -47,7 +47,7 @@ Task 1: Upload and Attach the iRule
 
 #. Click **Finished**.
 
-#. Navigate to **Local Traffic > Virtual Servers** and click **vs_Hackazon_I**.
+#. Navigate to **Local Traffic > Virtual Servers** and click **vs-lab-irules**.
 
 #. Select the **Resources** tab.
 

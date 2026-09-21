@@ -19,9 +19,12 @@ mitigated.
    * - Attack client (kali)
      - ``10.1.10.100``
      - Runs all ``curl`` commands in this lab
-   * - Hackazon VS (front end)
-     - ``10.1.10.61`` *(confirm)*
-     - BIG-IP client-side VIP; the target the attacker hits
+   * - DoS-profile VS (Task 1)
+     - ``vs-lab-dos`` — ``10.1.10.63``
+     - Carries the DoS-profile Proactive Bot Defense
+   * - Bot Defense VS (Tasks 2–6)
+     - ``vs-lab-bot`` — ``10.1.10.65``
+     - Carries the standalone profile; the target the ``curl`` demos hit
    * - Hackazon backend (pool)
      - ``10.1.20.5:80``
      - Server-subnet pool member behind the VS
@@ -30,8 +33,10 @@ mitigated.
 
    ``10.1.10.100`` is **kali (the attack client)**, not the virtual server —
    every ``curl`` below is issued *from* that host *against* the Hackazon VS.
-   The VS address shown (``10.1.10.61``) is one of the BIG-IP client-side VIPs;
-   confirm the actual one for your deployment with ``tmsh list ltm virtual``.
+   The ``curl`` demos target ``vs-lab-bot`` (``10.1.10.65``), which carries the
+   standalone Bot Defense profile. Task 1's DoS-profile bot defense lives on a
+   separate VS, ``vs-lab-dos`` (``10.1.10.63``) — see the shadow-profile note
+   below for why the two are kept apart.
 
 BIG-IP exposes this in two places, and this lab uses both:
 
@@ -97,14 +102,18 @@ Task 1: Deploy the DoS-Profile Bot Defense (baseline)
       tmsh list security dos profile lab_dos_bot_profile application botDefense
       tmsh list security dos profile lab_dos_bot_profile application botSignatures
 
+#. Attach the DoS profile to ``vs-lab-dos``::
+
+      tmsh modify ltm virtual vs-lab-dos profiles add { lab_dos_bot_profile }
+
 .. note::
 
    In AS3 3.29+ a DoS profile auto-generates a shadow Bot Defense profile named
-   ``f5_appsvcs_<dos-profile-name>_botDefense``. If you also try to bind a
-   *separate* standalone Bot Defense profile to the same virtual server you will
-   hit a duplicate-profile error. For Tasks 3+ below, bind the standalone
-   profile to a **second** virtual server (or remove the DoS profile from the VS
-   first).
+   ``f5_appsvcs_<dos-profile-name>_botDefense``. Binding a *separate* standalone
+   Bot Defense profile to the **same** virtual server then fails with a
+   duplicate-profile error. That is why this lab uses two VIPs: the DoS profile
+   (Task 1) is bound to ``vs-lab-dos`` and the standalone profile (Tasks 2+) to
+   ``vs-lab-bot``. See :doc:`/setup/lab-topology` for the full VIP map.
 
 Task 2: Deploy the Standalone Bot Defense Profile
 --------------------------------------------------
@@ -115,7 +124,7 @@ Task 2: Deploy the Standalone Bot Defense Profile
 
 #. Bind it to the lab virtual server::
 
-      tmsh modify ltm virtual lab-vs profiles add { lab-bot-defense }
+      tmsh modify ltm virtual vs-lab-bot profiles add { lab-bot-defense }
 
 #. Verify the per-class verification and mitigation actions loaded::
 
@@ -131,7 +140,7 @@ With ``browser-verify-before-access`` (the value shipped in the config):
 
 #. From the attack client, request the page with ``curl``::
 
-      curl -sv http://10.1.10.61/ 2>&1 | head -40
+      curl -sv http://10.1.10.65/ 2>&1 | head -40
 
    Expected: the response body is the **JavaScript challenge**, not the app.
    The origin server never received the request — BIG-IP answered first.
@@ -195,13 +204,13 @@ The standalone profile allows specific bots while blocking others:
 
       curl -so /dev/null -w "%{http_code}\n" \
            -A "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" \
-           http://10.1.10.61/
+           http://10.1.10.65/
 
 #. Send an HTTP-library user-agent and confirm it is **blocked**::
 
       curl -so /dev/null -w "%{http_code}\n" \
            -A "python-requests/2.28.0" \
-           http://10.1.10.61/
+           http://10.1.10.65/
 
 #. Check classification in **Security > Event Logs > Bot Defense > Bot
    Requests** — note the *Bot Signature* and *Bot Category* columns.
@@ -222,7 +231,7 @@ trusted automation two ways:
       for i in $(seq 1 500); do
           curl -so /dev/null \
                -A "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" \
-               http://10.1.10.61/ &
+               http://10.1.10.65/ &
       done; wait
 
 #. Observe throttling in **Security > Event Logs > Bot Defense** — requests

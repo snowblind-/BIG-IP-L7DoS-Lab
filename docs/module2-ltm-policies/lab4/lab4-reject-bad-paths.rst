@@ -56,7 +56,7 @@ Task 1: Create the Reject Policy
 Task 2: Attach the Policy to the Virtual Server
 ------------------------------------------------
 
-#. Navigate to **Local Traffic > Virtual Servers**, click **lab-vs**, and
+#. Navigate to **Local Traffic > Virtual Servers**, click **vs-lab-ltm**, and
    select the **Resources** tab.
 
 #. Under **Policies**, click **Manage**.
@@ -77,19 +77,19 @@ Task 3: Test Rejection of Known-Bad Paths
 
 #. Attempt to reach a WordPress admin path::
 
-      curl -v http://10.1.10.61/wp-admin/
+      curl -v http://10.1.10.62/wp-admin/
 
    Expected result: ``curl: (56) Recv failure: Connection reset by peer``
 
 #. Attempt to reach an exposed config file::
 
-      curl -v http://10.1.10.61/.env
+      curl -v http://10.1.10.62/.env
 
    Expected result: connection reset — no HTTP response.
 
 #. Confirm a legitimate path still works::
 
-      curl -so /dev/null -w "%{http_code}\n" http://10.1.10.61/
+      curl -so /dev/null -w "%{http_code}\n" http://10.1.10.62/
 
    Expected result: **200**
 
@@ -116,7 +116,7 @@ Task 5: Add a New Blocked Path at Runtime
 
 #. Test::
 
-      curl -v http://10.1.10.61/actuator/env
+      curl -v http://10.1.10.62/actuator/env
 
    Expected result: connection reset.
 

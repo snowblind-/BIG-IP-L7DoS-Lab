@@ -59,7 +59,7 @@ Task 1: Upload and Attach the iRule
 
 #. Click **Finished**.
 
-#. Attach ``sliding-window-429`` to **lab-vs**.
+#. Attach ``sliding-window-429`` to **vs-lab-irules**.
 
 Task 2: Observe the Retry-After Response
 -----------------------------------------

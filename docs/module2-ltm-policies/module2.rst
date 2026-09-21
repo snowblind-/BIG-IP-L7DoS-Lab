@@ -30,6 +30,9 @@ protection (Module 3).
 - Datagroup variant (Lab 3) allows runtime path changes with zero reload
 - LTM license only — no ASM required
 
+All Module 2 labs attach the policy under test to **vs-lab-ltm**
+(``10.1.10.62``). See :doc:`/setup/lab-topology`.
+
 .. toctree::
    :maxdepth: 1
    :caption: Labs

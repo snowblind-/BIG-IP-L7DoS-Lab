@@ -20,7 +20,7 @@ Task 1: Generate Baseline Traffic
 
 #. Run the baseline traffic script for at least 10 minutes::
 
-      bash ~/lab/scripts/setup/baseline-traffic.sh http://10.1.10.61 600
+      bash ~/lab/scripts/setup/baseline-traffic.sh http://10.1.10.63 600
 
    This sends realistic mixed traffic (~20 req/s across several URIs)
    to allow BADoS to build a traffic model.
@@ -71,7 +71,7 @@ Task 3: Launch the Simulated Attack
 
 #. From the attack client, run the HTTP flood script::
 
-      bash ~/lab/scripts/attack/http-flood.sh http://10.1.10.61 60 100
+      bash ~/lab/scripts/attack/http-flood.sh http://10.1.10.63 60 100
 
    This sends 100 concurrent connections for 60 seconds — a 5× spike over
    the 20 req/s baseline.
@@ -114,7 +114,7 @@ Task 5: Verify Legitimate Traffic is Preserved
 #. From a **different** client IP (or using a second terminal with a
    different source IP), send requests during the attack::
 
-      curl -so /dev/null -w "%{http_code}\n" http://10.1.10.61/
+      curl -so /dev/null -w "%{http_code}\n" http://10.1.10.63/
 
    Expected result: **200** — BADoS targets individual bad actors, not
    all traffic to the virtual server.

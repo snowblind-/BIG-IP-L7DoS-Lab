@@ -73,13 +73,13 @@ Task 3: Verify Existing Paths Still Work
 
 #. Test a strict path::
 
-      ab -n 100 -c 15 http://10.1.10.61/api/login
+      ab -n 100 -c 15 http://10.1.10.62/api/login
 
    Expected: 429 responses once exceeding 10 req/s.
 
 #. Test a medium path::
 
-      ab -n 200 -c 20 http://10.1.10.61/search
+      ab -n 200 -c 20 http://10.1.10.62/search
 
    Expected: 429 responses once exceeding 50 req/s.
 
@@ -93,7 +93,7 @@ Task 4: Add a New Path at Runtime Without Any Policy or iRule Change
 
 #. Immediately test the new path — no reload required::
 
-      ab -n 100 -c 15 http://10.1.10.61/api/new-feature
+      ab -n 100 -c 15 http://10.1.10.62/api/new-feature
 
    Expected: 429 responses at the strict threshold of 10 req/s.
 

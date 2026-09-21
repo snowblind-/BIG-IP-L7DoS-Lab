@@ -91,11 +91,11 @@ Task 4: Generate Attack Traffic and Observe Blocking
 
 #. From the attack client, run a sustained high-rate flood::
 
-      wrk -t4 -c100 -d60s http://10.1.10.61/
+      wrk -t4 -c100 -d60s http://10.1.10.63/
 
    If ``wrk`` is not available::
 
-      ab -n 10000 -c 100 -t 60 http://10.1.10.61/
+      ab -n 10000 -c 100 -t 60 http://10.1.10.63/
 
 #. While the flood runs, open the BIG-IP TMUI and navigate to
    **Security > Event Logs > DoS > Application Events**.
@@ -116,7 +116,7 @@ Task 5: Review Block Page Behavior
 #. While the flood is running (or immediately after), send a manual request
    from the attack client::
 
-      curl -v http://10.1.10.61/
+      curl -v http://10.1.10.63/
 
    The response should be the ASM block page with HTTP **200** (or a
    configured redirect) rather than the application content.

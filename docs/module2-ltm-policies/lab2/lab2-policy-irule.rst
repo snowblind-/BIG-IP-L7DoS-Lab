@@ -89,7 +89,7 @@ Task 2: Create the LTM Policy
 Task 3: Attach Policy and iRule to the Virtual Server
 ------------------------------------------------------
 
-#. Navigate to **Local Traffic > Virtual Servers**, click **lab-vs**, and
+#. Navigate to **Local Traffic > Virtual Servers**, click **vs-lab-ltm**, and
    select the **Resources** tab.
 
 #. Under **Policies**, click **Manage** and move ``path-rate-policy`` to
@@ -111,19 +111,19 @@ Task 4: Test Per-Path Rate Limiting
 
 #. Test the **strict** profile on the login endpoint (limit: 10 req/s)::
 
-      ab -n 100 -c 15 http://10.1.10.61/api/login
+      ab -n 100 -c 15 http://10.1.10.62/api/login
 
    You should see **429** responses once the client exceeds 10 req/s.
 
 #. Test the **medium** profile on search (limit: 50 req/s)::
 
-      ab -n 200 -c 20 http://10.1.10.61/search
+      ab -n 200 -c 20 http://10.1.10.62/search
 
    You should be able to sustain ~50 req/s before 429s appear.
 
 #. Confirm the **permissive** home page is unaffected at moderate rates::
 
-      ab -n 200 -c 20 http://10.1.10.61/
+      ab -n 200 -c 20 http://10.1.10.62/
 
    Expected result: all **200** responses at 20 req/s (well below the
    200 req/s permissive limit).
@@ -141,7 +141,7 @@ Task 5: Add a New Protected Path Without Editing the iRule
 
 #. Verify the new path is now rate-limited at the strict threshold::
 
-      ab -n 100 -c 15 http://10.1.10.61/api/password-reset
+      ab -n 100 -c 15 http://10.1.10.62/api/password-reset
 
    The iRule was not modified — only the policy changed.
 

@@ -40,7 +40,7 @@ Task 1: Upload and Attach the iRule
 
 #. Click **Finished**.
 
-#. Navigate to **Local Traffic > Virtual Servers**, click **lab-vs**, select
+#. Navigate to **Local Traffic > Virtual Servers**, click **vs-lab-irules**, select
    the **Resources** tab, click **Manage** under iRules, and add
    ``rate-limit-per-uri`` to **Enabled**.
 

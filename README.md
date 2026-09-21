@@ -4,11 +4,44 @@ A lab environment for testing, demonstrating, and analyzing BIG-IP Layer 7 Denia
 
 ## Lab Overview
 
-This lab covers three BIG-IP L7DoS mitigation methods across eight scenarios:
+This lab covers three BIG-IP L7DoS mitigation methods across nine scenarios:
 
-- **iRule-based rate limiting** — per-IP, per-URI, concurrent connection, and sliding window
+- **iRule-based rate limiting** — per-IP, per-URI, concurrent connection, sliding window, and a custom header-absence L7DoS signature
 - **LTM Policy path-based rate limiting** — declarative path matching with rate filters, iRule triggers, and datagroup-driven dynamic config
 - **ASM / Advanced WAF DoS protection** — TPS thresholds, Behavioral DoS (BADoS), Proactive Bot Defense, and stress-based detection
+
+## Topology
+
+Each protection method runs on its own virtual server, all fronting the same Hackazon backend. See [`docs/setup/lab-topology.rst`](docs/setup/lab-topology.rst) for the build commands.
+
+```mermaid
+flowchart LR
+    subgraph cl["Client subnet · 10.1.10.0/24"]
+        kali["kali — attack client<br/>10.1.10.100"]:::attacker
+    end
+
+    subgraph bigip["BIG-IP VE 17.1.0.1 · mgmt 10.1.1.11"]
+        direction TB
+        v1["vs-lab-irules<br/>10.1.10.61:80<br/>Module 1 · iRules"]:::vip
+        v2["vs-lab-ltm<br/>10.1.10.62:80<br/>Module 2 · LTM policies"]:::vip
+        v3["vs-lab-dos<br/>10.1.10.63:80<br/>Module 3 · DoS profile"]:::vip
+        v4["vs-lab-bot<br/>10.1.10.65:80<br/>Module 3 · Bot Defense"]:::vip
+        pool[("hackazon-pool")]:::pool
+    end
+
+    subgraph sv["Server subnet · 10.1.20.0/24"]
+        hack["Hackazon backend<br/>10.1.20.5:80"]:::backend
+    end
+
+    kali --> v1 & v2 & v3 & v4
+    v1 & v2 & v3 & v4 --> pool
+    pool --> hack
+
+    classDef attacker fill:#ffe0e0,stroke:#c0392b,color:#111
+    classDef vip fill:#e3f0fd,stroke:#2b6cb0,color:#111
+    classDef pool fill:#efe9d9,stroke:#8a6d3b,color:#111
+    classDef backend fill:#e2f7e2,stroke:#2f855a,color:#111
+```
 
 ## Directory Structure
 

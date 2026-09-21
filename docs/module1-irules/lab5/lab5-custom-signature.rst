@@ -94,7 +94,7 @@ Task 2: Deploy and attach the iRule
 
 #. Attach it to the lab virtual server::
 
-      tmsh modify ltm virtual lab-vs rules { custom-l7dos-signature }
+      tmsh modify ltm virtual vs-lab-irules rules { custom-l7dos-signature }
 
    If other Module 1 rules are attached, ordering does not matter here — this
    rule returns early for legitimate traffic and responds directly for throttled

@@ -31,6 +31,11 @@ but offers behavioral detection that adapts to traffic patterns automatically.
    BIG-IP applies the most restrictive applicable mitigation when multiple
    modes trigger.
 
+Module 3 uses **vs-lab-dos** (``10.1.10.63``) for the DoS-profile methods
+(TPS, BADoS, stress, and the DoS-profile Proactive Bot Defense) and
+**vs-lab-bot** (``10.1.10.65``) for the standalone Bot Defense profile. See
+:doc:`/setup/lab-topology`.
+
 .. toctree::
    :maxdepth: 1
    :caption: Labs

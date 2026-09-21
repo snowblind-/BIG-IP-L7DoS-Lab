@@ -38,7 +38,7 @@ Task 1: Upload and Attach the iRule
 
 #. Click **Finished**.
 
-#. Attach ``concurrent-conn-limit`` to **lab-vs** via the **Resources** tab.
+#. Attach ``concurrent-conn-limit`` to **vs-lab-irules** via the **Resources** tab.
 
 Task 2: Test the Connection Limit
 ----------------------------------
