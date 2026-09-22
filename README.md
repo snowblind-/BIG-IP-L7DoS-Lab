@@ -4,11 +4,11 @@ A lab environment for testing, demonstrating, and analyzing BIG-IP Layer 7 Denia
 
 ## Lab Overview
 
-This lab covers three BIG-IP L7DoS mitigation methods across nine scenarios:
+This lab covers three BIG-IP L7DoS mitigation methods across ten scenarios:
 
 - **iRule-based rate limiting** — per-IP, per-URI, concurrent connection, sliding window, and a custom header-absence L7DoS signature
 - **LTM Policy path-based rate limiting** — declarative path matching with rate filters, iRule triggers, and datagroup-driven dynamic config
-- **ASM / Advanced WAF DoS protection** — TPS thresholds, Behavioral DoS (BADoS), Proactive Bot Defense, and stress-based detection
+- **ASM / Advanced WAF DoS protection** — TPS thresholds, Behavioral DoS (BADoS), Proactive Bot Defense, stress-based detection, and custom persistent DoS signatures
 
 ## Topology
 
@@ -98,6 +98,7 @@ BIG-IP-L7DoS-Lab/
 | 3.2 | Behavioral DoS (BADoS) | `configs/profiles/bados-profile.json` |
 | 3.3 | Proactive Bot Defense | `configs/profiles/bot-defense-profile.json` (DoS profile) + `configs/profiles/bot-defense-standalone.conf` (standalone profile: verify before/after, per-bot rate limits) |
 | 3.4 | Stress-based detection | *(see docs/module3-asm-waf.md)* |
+| 3.5 | Custom persistent DoS signatures | `configs/profiles/dos-persistent-signature.conf` |
 
 ## Important Notice
 
