@@ -21,7 +21,7 @@ application servers and the connection table.
 - If a no-code GUI-driven approach is required → use LTM Policies (Module 2)
 
 All Module 1 labs attach the iRule under test to **vs-lab-irules**
-(``10.1.10.61``). See :doc:`/setup/lab-topology`.
+(``10.1.10.55``). See :doc:`/setup/lab-topology`.
 
 .. toctree::
    :maxdepth: 1

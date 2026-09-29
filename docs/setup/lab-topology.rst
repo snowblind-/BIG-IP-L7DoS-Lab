@@ -14,11 +14,11 @@ Topology
 .. code-block:: text
 
    [Attack Client]                     [BIG-IP VE 17.1.0.1]                [Backend]
-    kali 10.1.10.100 ───HTTP──▶  vs-lab-irules  10.1.10.61:80 ─┐
-                                 vs-lab-ltm     10.1.10.62:80 ─┤
-                                 vs-lab-dos     10.1.10.63:80 ─┼─▶ hackazon-pool
-                                 vs-lab-bot     10.1.10.65:80 ─┘     10.1.20.5:80
-                                 mgmt 10.1.1.11
+    kali 10.1.10.100 ───HTTP──▶  vs-lab-irules  10.1.10.55:80 ─┐
+                                 vs-lab-ltm     10.1.10.56:80 ─┤
+                                 vs-lab-dos     10.1.10.63:80 ─┼─▶ Hackazon_pool ──▶ Hackazon
+                                 vs-lab-bot     10.1.10.74:80 ─┘   (existing UDF pool,
+                                 mgmt 10.1.1.11                     live member)
 
 Virtual server map
 ------------------
@@ -32,13 +32,13 @@ Virtual server map
      - Module / scenarios
      - What to attach
    * - ``vs-lab-irules``
-     - ``10.1.10.61:80``
+     - ``10.1.10.55:80``
      - Module 1 — iRule rate limiting (1.1–1.5)
      - The iRule under test (``rate-limit-per-ip``, ``rate-limit-per-uri``,
        ``concurrent-conn-limit``, ``sliding-window-429``,
        ``custom-l7dos-signature``)
    * - ``vs-lab-ltm``
-     - ``10.1.10.62:80``
+     - ``10.1.10.56:80``
      - Module 2 — LTM policies (2.1–2.4)
      - The LTM policy under test, plus ``policy-triggered-rate-limit`` where the
        scenario uses it
@@ -49,51 +49,97 @@ Virtual server map
      - ``lab_dos_*`` DoS profile (``tps-dos-profile.json`` /
        ``bados-profile.json`` / ``bot-defense-profile.json``)
    * - ``vs-lab-bot``
-     - ``10.1.10.65:80``
+     - ``10.1.10.74:80``
      - Module 3 — standalone Bot Defense profile (3.3, Task 2+): verify
        before/after, per-bot rate limits
      - ``security bot-defense profile lab-bot-defense``
        (``bot-defense-standalone.conf``)
+   * - ``vs_Hackazon_I``
+     - ``10.1.10.61:80``
+     - Pre-built by the UDF blueprint — leave as-is
+     - Nothing (unprotected baseline for A/B comparison)
 
-All four VIPs share one pool, so the application under test is identical across
-methods.
+All four lab VIPs point at the blueprint's existing ``Hackazon_pool``, so the
+application under test is identical across methods.
 
-Create the pool and virtual servers
------------------------------------
+.. note::
 
-Run once on the BIG-IP (``mgmt 10.1.1.11``). Adjust the VIP addresses if your UDF
-deployment assigns different ones from the client-subnet range, and rename the
-virtual servers if UDF pre-creates any.
+   **Pool.** The lab uses the UDF blueprint's existing ``Hackazon_pool``, which
+   already has a live, monitored Hackazon member — it does **not** create its own
+   pool. (An earlier draft created a pool with member ``10.1.20.5:80``, but
+   nothing was listening on that address in this blueprint version.) Confirm the
+   pool and its member are up before building::
+
+      tmsh list ltm pool Hackazon_pool
+
+.. note::
+
+   **Addresses already in use.** The UDF blueprint pre-builds several demo
+   virtual servers on the client subnet — ``.52``, ``.54``, ``.57``, ``.58``,
+   ``.59``, ``.61`` (``vs_Hackazon_I``), ``.62``, ``.65``, and ``.66`` — so those
+   are taken. The lab uses the free addresses ``.55``, ``.56``, ``.63``, and
+   ``.74`` (``.78`` is spare). ``.9`` is the BIG-IP self IP, not a VIP. Check
+   before building::
+
+      tmsh list ltm virtual destination
+      tmsh list ltm virtual-address
+
+   Leaving ``vs_Hackazon_I`` (``.61``) untouched is handy: it's an unmitigated
+   path to the same Hackazon backend, so you can hit it alongside a lab VIP to
+   compare "no protection" against each mitigation.
+
+Create the virtual servers
+--------------------------
+
+Run once on the BIG-IP (``mgmt 10.1.1.11``). The lab reuses the UDF blueprint's
+existing ``Hackazon_pool`` (which already has a live Hackazon member), so no pool
+is created here. Adjust the VIP addresses if your deployment differs.
 
 .. code-block:: bash
 
-   # Shared backend pool -> Hackazon
-   tmsh create ltm pool hackazon-pool members add { 10.1.20.5:80 }
-
-   # One virtual server per method family, all fronting the same pool.
+   # Four virtual servers, all fronting the blueprint's existing Hackazon_pool.
    # SNAT automap so the backend returns via the BIG-IP server-side self IP.
-   tmsh create ltm virtual vs-lab-irules destination 10.1.10.61:80 \
-       ip-protocol tcp pool hackazon-pool \
-       profiles add { http } source-address-translation { type automap }
+   tmsh create ltm virtual vs-lab-irules destination 10.1.10.55:80 \
+       ip-protocol tcp pool Hackazon_pool \
+       profiles add { tcp http } source-address-translation { type automap }
 
-   tmsh create ltm virtual vs-lab-ltm destination 10.1.10.62:80 \
-       ip-protocol tcp pool hackazon-pool \
-       profiles add { http } source-address-translation { type automap }
+   tmsh create ltm virtual vs-lab-ltm destination 10.1.10.56:80 \
+       ip-protocol tcp pool Hackazon_pool \
+       profiles add { tcp http } source-address-translation { type automap }
 
    tmsh create ltm virtual vs-lab-dos destination 10.1.10.63:80 \
-       ip-protocol tcp pool hackazon-pool \
-       profiles add { http } source-address-translation { type automap }
+       ip-protocol tcp pool Hackazon_pool \
+       profiles add { tcp http } source-address-translation { type automap }
 
-   tmsh create ltm virtual vs-lab-bot destination 10.1.10.65:80 \
-       ip-protocol tcp pool hackazon-pool \
-       profiles add { http } source-address-translation { type automap }
+   tmsh create ltm virtual vs-lab-bot destination 10.1.10.74:80 \
+       ip-protocol tcp pool Hackazon_pool \
+       profiles add { tcp http } source-address-translation { type automap }
 
    tmsh save sys config
+
+Atomic build + SCF export
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To create all four VIPs in a single all-or-nothing **transaction** (nothing is
+created if any object fails) and export the result as a Single Configuration
+File, run ``scripts/setup/create-lab-vips.sh`` on the BIG-IP. It checks that
+``Hackazon_pool`` exists and that each address is free (clean early abort — no
+dangling transaction prompt), wraps VIP creation in ``create cli transaction`` /
+``submit cli transaction``, verifies all four VIPs exist, and only then writes
+``/var/local/scf/l7dos-lab.scf``.
+
+.. note::
+
+   An SCF is a **whole-device** configuration snapshot, not just these objects —
+   ``tmsh load sys config file l7dos-lab.scf`` *replaces* the entire running
+   config (it first backs the old one up to ``/var/local/scf/backup.scf``). To
+   pull only the VIPs into an existing box, keep those stanzas in their own file
+   and load with ``tmsh load sys config merge file <file>`` instead.
 
 Verify::
 
    tmsh list ltm virtual one-line | grep vs-lab-
-   for ip in 61 62 63 65; do
+   for ip in 55 56 63 74; do
        curl -s -o /dev/null -w "vs .$ip -> %{http_code}\n" http://10.1.10.$ip/
    done
 
@@ -105,7 +151,7 @@ is attached.
    Attach only the method being demonstrated to its VIP, and leave the others
    clean. That way a single ``curl`` from kali (``10.1.10.100``) shows exactly
    one mitigation at a time, and you can A/B two methods by changing only the
-   destination port-less address (``.61`` vs ``.63``, etc.).
+   destination port-less address (``.55`` vs ``.63``, etc.).
 
 .. important::
 

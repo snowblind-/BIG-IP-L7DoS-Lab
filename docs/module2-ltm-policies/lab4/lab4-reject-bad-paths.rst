@@ -77,19 +77,19 @@ Task 3: Test Rejection of Known-Bad Paths
 
 #. Attempt to reach a WordPress admin path::
 
-      curl -v http://10.1.10.62/wp-admin/
+      curl -v http://10.1.10.56/wp-admin/
 
    Expected result: ``curl: (56) Recv failure: Connection reset by peer``
 
 #. Attempt to reach an exposed config file::
 
-      curl -v http://10.1.10.62/.env
+      curl -v http://10.1.10.56/.env
 
    Expected result: connection reset — no HTTP response.
 
 #. Confirm a legitimate path still works::
 
-      curl -so /dev/null -w "%{http_code}\n" http://10.1.10.62/
+      curl -so /dev/null -w "%{http_code}\n" http://10.1.10.56/
 
    Expected result: **200**
 
@@ -116,7 +116,7 @@ Task 5: Add a New Blocked Path at Runtime
 
 #. Test::
 
-      curl -v http://10.1.10.62/actuator/env
+      curl -v http://10.1.10.56/actuator/env
 
    Expected result: connection reset.
 

@@ -22,15 +22,15 @@ flowchart LR
 
     subgraph bigip["BIG-IP VE 17.1.0.1 · mgmt 10.1.1.11"]
         direction TB
-        v1["vs-lab-irules<br/>10.1.10.61:80<br/>Module 1 · iRules"]:::vip
-        v2["vs-lab-ltm<br/>10.1.10.62:80<br/>Module 2 · LTM policies"]:::vip
+        v1["vs-lab-irules<br/>10.1.10.55:80<br/>Module 1 · iRules"]:::vip
+        v2["vs-lab-ltm<br/>10.1.10.56:80<br/>Module 2 · LTM policies"]:::vip
         v3["vs-lab-dos<br/>10.1.10.63:80<br/>Module 3 · DoS profile"]:::vip
-        v4["vs-lab-bot<br/>10.1.10.65:80<br/>Module 3 · Bot Defense"]:::vip
-        pool[("hackazon-pool")]:::pool
+        v4["vs-lab-bot<br/>10.1.10.74:80<br/>Module 3 · Bot Defense"]:::vip
+        pool[("Hackazon_pool")]:::pool
     end
 
     subgraph sv["Server subnet · 10.1.20.0/24"]
-        hack["Hackazon backend<br/>10.1.20.5:80"]:::backend
+        hack["Hackazon<br/>(Hackazon_pool member)"]:::backend
     end
 
     kali --> v1 & v2 & v3 & v4

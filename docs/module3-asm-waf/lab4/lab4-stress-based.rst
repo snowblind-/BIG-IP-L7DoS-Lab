@@ -76,11 +76,11 @@ Task 2: Establish a Latency Baseline
 Task 3: Simulate a Slow Server Under Attack
 --------------------------------------------
 
-#. On the web server (``10.1.20.5``), start a script that introduces
+#. On the Hackazon server (the ``Hackazon_pool`` member; get its IP with ``tmsh list ltm pool Hackazon_pool``), start a script that introduces
    artificial latency for high-concurrency requests (simulating a server
    under load)::
 
-      ssh root@10.1.20.5 \
+      ssh root@<hackazon-member> \
         "echo 'limit_req_zone \$binary_remote_addr zone=slow:10m rate=5r/s;' \
          >> /etc/nginx/nginx.conf && nginx -s reload"
 
@@ -119,7 +119,7 @@ Task 5: Clean Up
 
 #. Remove the artificial latency from the web server::
 
-      ssh root@10.1.20.5 \
+      ssh root@<hackazon-member> \
         "sed -i '/limit_req_zone/d' /etc/nginx/nginx.conf && nginx -s reload"
 
 #. Verify server response times return to baseline in the DoS Overview

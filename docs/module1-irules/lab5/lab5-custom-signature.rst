@@ -23,7 +23,7 @@ passes untouched.**
      - ``10.1.10.100``
      - Sends requests WITHOUT the required headers
    * - Virtual server
-     - ``10.1.10.61``
+     - ``10.1.10.55``
      - iRule attached here
    * - Required header 1
      - ``X-Client-ID``
@@ -109,7 +109,7 @@ From kali (``10.1.10.100``), send a fast burst that includes both headers::
        curl -s -o /dev/null -w "%{http_code}\n" \
             -H "X-Client-ID: web-portal" \
             -H "X-Client-Token: s3cr3t-demo" \
-            http://10.1.10.61/
+            http://10.1.10.55/
    done
 
 Expected result: **every request returns 200**. Well-formed clients are never
@@ -122,16 +122,16 @@ Now send the same burst *without* the headers — this is what commodity tooling
 looks like::
 
    for i in $(seq 1 30); do
-       curl -s -o /dev/null -w "%{http_code}\n" http://10.1.10.61/
+       curl -s -o /dev/null -w "%{http_code}\n" http://10.1.10.55/
    done
 
 Expected result: the first **5** requests return ``200``, then the rest return
 ``429`` until the 1-second window rolls over. Inspect the mitigation headers on a
 blocked response::
 
-   curl -sD - -o /dev/null http://10.1.10.61/ \
-        http://10.1.10.61/ http://10.1.10.61/ http://10.1.10.61/ \
-        http://10.1.10.61/ http://10.1.10.61/ | grep -i "X-L7DoS\|X-RateLimit\|HTTP/"
+   curl -sD - -o /dev/null http://10.1.10.55/ \
+        http://10.1.10.55/ http://10.1.10.55/ http://10.1.10.55/ \
+        http://10.1.10.55/ http://10.1.10.55/ | grep -i "X-L7DoS\|X-RateLimit\|HTTP/"
 
 You should see ``X-L7DoS-Signature: missing-client-headers`` and
 ``X-RateLimit-Limit: 5`` on the throttled responses.
@@ -139,7 +139,7 @@ You should see ``X-L7DoS-Signature: missing-client-headers`` and
 You can also drive the existing flood script (which does **not** send the
 headers) and watch it collapse to the cap::
 
-   bash ~/lab/scripts/attack/http-flood.sh http://10.1.10.61 30 50
+   bash ~/lab/scripts/attack/http-flood.sh http://10.1.10.55 30 50
 
 Task 5: Demonstrate effectiveness under load
 ---------------------------------------------

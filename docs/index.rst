@@ -33,10 +33,10 @@ Lab Environment
 .. code-block:: text
 
    [Attack Client]              [BIG-IP VE 17.1.0.1]              [Backend]
-    kali 10.1.10.100 ──HTTP──▶  vs-lab-irules 10.1.10.61 ─┐
-                                vs-lab-ltm    10.1.10.62 ─┤
-                                vs-lab-dos    10.1.10.63 ─┼─▶ hackazon-pool
-                                vs-lab-bot    10.1.10.65 ─┘    10.1.20.5:80
+    kali 10.1.10.100 ──HTTP──▶  vs-lab-irules 10.1.10.55 ─┐
+                                vs-lab-ltm    10.1.10.56 ─┤
+                                vs-lab-dos    10.1.10.63 ─┼─▶ Hackazon_pool ─▶ Hackazon
+                                vs-lab-bot    10.1.10.74 ─┘   (existing UDF pool)
                                 mgmt 10.1.1.11
 
 Each protection method runs on its own virtual server (see

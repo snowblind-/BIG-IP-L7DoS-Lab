@@ -31,7 +31,7 @@ protection (Module 3).
 - LTM license only — no ASM required
 
 All Module 2 labs attach the policy under test to **vs-lab-ltm**
-(``10.1.10.62``). See :doc:`/setup/lab-topology`.
+(``10.1.10.56``). See :doc:`/setup/lab-topology`.
 
 .. toctree::
    :maxdepth: 1

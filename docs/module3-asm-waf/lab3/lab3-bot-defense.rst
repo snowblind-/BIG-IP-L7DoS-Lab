@@ -23,17 +23,17 @@ mitigated.
      - ``vs-lab-dos`` — ``10.1.10.63``
      - Carries the DoS-profile Proactive Bot Defense
    * - Bot Defense VS (Tasks 2–6)
-     - ``vs-lab-bot`` — ``10.1.10.65``
+     - ``vs-lab-bot`` — ``10.1.10.74``
      - Carries the standalone profile; the target the ``curl`` demos hit
-   * - Hackazon backend (pool)
-     - ``10.1.20.5:80``
-     - Server-subnet pool member behind the VS
+   * - Backend
+     - ``Hackazon_pool``
+     - Blueprint's existing pool + live Hackazon member behind the VS
 
 .. note::
 
    ``10.1.10.100`` is **kali (the attack client)**, not the virtual server —
    every ``curl`` below is issued *from* that host *against* the Hackazon VS.
-   The ``curl`` demos target ``vs-lab-bot`` (``10.1.10.65``), which carries the
+   The ``curl`` demos target ``vs-lab-bot`` (``10.1.10.74``), which carries the
    standalone Bot Defense profile. Task 1's DoS-profile bot defense lives on a
    separate VS, ``vs-lab-dos`` (``10.1.10.63``) — see the shadow-profile note
    below for why the two are kept apart.
@@ -140,7 +140,7 @@ With ``browser-verify-before-access`` (the value shipped in the config):
 
 #. From the attack client, request the page with ``curl``::
 
-      curl -sv http://10.1.10.65/ 2>&1 | head -40
+      curl -sv http://10.1.10.74/ 2>&1 | head -40
 
    Expected: the response body is the **JavaScript challenge**, not the app.
    The origin server never received the request — BIG-IP answered first.
@@ -204,13 +204,13 @@ The standalone profile allows specific bots while blocking others:
 
       curl -so /dev/null -w "%{http_code}\n" \
            -A "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" \
-           http://10.1.10.65/
+           http://10.1.10.74/
 
 #. Send an HTTP-library user-agent and confirm it is **blocked**::
 
       curl -so /dev/null -w "%{http_code}\n" \
            -A "python-requests/2.28.0" \
-           http://10.1.10.65/
+           http://10.1.10.74/
 
 #. Check classification in **Security > Event Logs > Bot Defense > Bot
    Requests** — note the *Bot Signature* and *Bot Category* columns.
@@ -231,7 +231,7 @@ trusted automation two ways:
       for i in $(seq 1 500); do
           curl -so /dev/null \
                -A "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" \
-               http://10.1.10.65/ &
+               http://10.1.10.74/ &
       done; wait
 
 #. Observe throttling in **Security > Event Logs > Bot Defense** — requests

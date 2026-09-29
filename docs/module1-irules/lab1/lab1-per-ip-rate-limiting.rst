@@ -70,7 +70,7 @@ Task 2: Verify Baseline Behavior
 #. Send five sequential requests and confirm all return **200**::
 
       for i in $(seq 1 5); do
-          curl -so /dev/null -w "%{http_code}\n" http://10.1.10.61/
+          curl -so /dev/null -w "%{http_code}\n" http://10.1.10.55/
       done
 
    Expected output::
@@ -86,7 +86,7 @@ Task 3: Trigger the Rate Limit
 
 #. From the attack client, run a short HTTP flood that exceeds the threshold::
 
-      ab -n 500 -c 50 http://10.1.10.61/
+      ab -n 500 -c 50 http://10.1.10.55/
 
 #. Observe the response codes in the ``ab`` summary. You should see a mix of
    **200** (within threshold) and **429** (threshold exceeded) responses.
@@ -109,7 +109,7 @@ Task 4: Observe the Rate Limit Reset
 
       sleep 2
       for i in $(seq 1 5); do
-          curl -so /dev/null -w "%{http_code}\n" http://10.1.10.61/
+          curl -so /dev/null -w "%{http_code}\n" http://10.1.10.55/
       done
 
    Expected output::
