@@ -4,7 +4,8 @@ Lab 2: Behavioral DoS (BADoS)
 Behavioral DoS (BADoS) uses machine learning to model **normal** traffic, then
 detects and mitigates anomalies automatically — no explicit thresholds. This lab
 drives the blueprint's ready-made BaDOS demo from kali and validates it in
-**Grafana**, then inspects the dynamic signatures BADoS generates.
+**Grafana** (or the native TMUI **DoS Overview**), then inspects the dynamic
+signatures BADoS generates.
 
 .. list-table:: Lab environment
    :header-rows: 1
@@ -75,16 +76,19 @@ BADoS needs a learning period on normal traffic before it can spot anomalies.
    Both patterns source from ``10.1.10.100`` with randomised user-agents and
    URLs, so BADoS learns a model built from many apparent legitimate clients.
 
-Task 2: Confirm learning in Grafana
------------------------------------
+Task 2: Confirm learning
+------------------------
 
-#. **(win-client)** RDP to the Windows client (superjump Guacamole), launch
-   **Chrome**, and open the **Grafana** bookmark. Log in ``admin`` / ``admin``.
+Validate with **Grafana** (the environment's dashboard) *or* the native **TMUI**
+DoS Overview — either works. Wait for learning to complete before attacking.
 
-#. **(win-client)** Go to **Home > Health and Mitigations**. Wait for
-   **HTTP Threshold Learning** to turn **GREEN** before attacking — that is
-   BADoS signalling it has a usable baseline (equivalent to *Behavioral Analysis
-   Status: Ready* in the TMUI).
+- **(win-client) Grafana:** RDP to the Windows client (superjump Guacamole),
+  launch **Chrome**, open the **Grafana** bookmark (``admin`` / ``admin``), and go
+  to **Home > Health and Mitigations**. Wait for **HTTP Threshold Learning** to
+  turn **GREEN**.
+- **(TMUI) BIG-IP GUI — no Grafana needed:** **Security > DoS Protection > DoS
+  Overview**. Wait for **Behavioral Analysis Status** to move **Learning →
+  Ready**.
 
 Task 3: Launch the attack
 -------------------------
@@ -107,19 +111,34 @@ Task 3: Launch the attack
    The attack binds to ``10.1.10.200``, so kali must have that secondary address
    configured (it does in the blueprint). Confirm with ``ip addr | grep 10.1.10``.
 
-Task 4: Validate mitigation in Grafana
---------------------------------------
+Task 4: Validate mitigation
+---------------------------
 
-#. **(win-client)** In **Home > Health and Mitigations** you should see
-   **UNDER ATTACK** and the **Health** score degrade (**> 0.45**).
+Validate in **Grafana** *or* the native **TMUI** — either shows detection,
+mitigation, and the offending sources.
 
-#. **(win-client)** After a few minutes, **Health returns to good (< 0.45)** —
-   BADoS has generated dynamic signatures and is mitigating the attack while it
-   is still in progress.
+**(win-client) Grafana:**
 
-#. **(win-client)** On the **Home** dashboard, open the **Bad Actors** graph —
-   the offending sources are now blacklisted because they match the dynamic
-   signatures, while legitimate baseline traffic keeps flowing.
+#. **Home > Health and Mitigations** shows **UNDER ATTACK** and the **Health**
+   score degrade (**> 0.45**).
+
+#. After a few minutes **Health returns to good (< 0.45)** — BADoS has generated
+   dynamic signatures and is mitigating while the attack is still in progress.
+
+#. The **Home > Bad Actors** graph shows the offenders blacklisted, while
+   legitimate baseline traffic keeps flowing.
+
+**(TMUI) BIG-IP GUI — no Grafana needed:**
+
+#. **Security > DoS Protection > DoS Overview**: **Attack Status: Detected** and
+   **Mitigation: Active** within ~20–30 s of the flood. The **Bad Actors** table
+   populates with the attacker's XFF cluster (the narrow range the demo's
+   ``XFF_mixed_Attacker_Good`` iRule assigns to source ``10.1.10.200``), while the
+   legitimate baseline sources are not listed.
+
+#. **Security > Event Logs > DoS > Application Events** — per-attack detail
+   (anomaly %, mitigated actors, action). These populate because
+   ``vs_Hackazon_I`` carries the ``L7-DOS_BOT_Logger`` log profile.
 
 Task 5: Inspect the dynamic signatures
 --------------------------------------
