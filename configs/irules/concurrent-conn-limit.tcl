@@ -15,7 +15,7 @@ when CLIENT_ACCEPTED {
     set key    "cc_[string map {: _} $client]"
 
     set conns [table incr $key]
-    if { $count == 1 } {
+    if { $conns == 1 } {
         # No expiry — entry is decremented on CLIENT_CLOSED
         table set $key $conns indefinite indefinite
     }
@@ -31,7 +31,7 @@ when CLIENT_CLOSED {
     set key    "cc_[string map {: _} $client]"
 
     set current [table lookup $key]
-    if { $current > 0 } {
+    if { $current ne "" && $current > 0 } {
         table set $key [expr { $current - 1 }] indefinite indefinite
     }
 }

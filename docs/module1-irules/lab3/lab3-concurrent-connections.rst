@@ -43,41 +43,45 @@ Task 1: Upload and Attach the iRule
 Task 2: Test the Connection Limit
 ----------------------------------
 
-#. From the attack client, open 30 simultaneous connections to a slow
-   endpoint. If no slow endpoint exists, use ``sleep`` to hold connections::
+#. Confirm the concurrent iRule is the one attached (not a rate-limit iRule from
+   an earlier lab)::
 
-      for i in $(seq 1 30); do
-          curl -s --max-time 30 http://10.1.10.55/slow &
-      done
-      wait
+      tmsh list ltm virtual vs-lab-irules rules    # expect: rules { concurrent-conn-limit }
 
-#. In a second terminal, check how many connections BIG-IP is tracking::
+#. From the attack client, open 30 simultaneous connections. The home page ``/``
+   is served slowly on the lab backend (~1.5 s), so connections stay open long
+   enough to build past the limit — no artificial slow endpoint needed::
 
-      ssh admin@10.1.1.11 \
-        "tmsh show sys connection cs-server-addr 10.1.10.55" | wc -l
+      for i in $(seq 30); do
+          curl -s -o /dev/null -w "%{http_code} " --max-time 30 http://10.1.10.55/ &
+      done; wait; echo
 
-   The count should not exceed ``static::max_conns`` (20) from the single
-   client IP.
+   Expected result: about **20** requests print **200** (they got a connection
+   slot) and the rest print **000** — curl's code for "no response", i.e. the
+   connection was **reset** by the iRule once the client passed 20 concurrent.
 
-#. Attempt a new connection from the same client while the 20 are held::
+#. *(Optional, while a burst is in flight)* check how many connections BIG-IP is
+   tracking for the client — it should not exceed ``static::max_conns`` (20)::
 
-      curl -v http://10.1.10.55/
+      tmsh show sys connection cs-client-addr 10.1.10.100 cs-server-addr 10.1.10.55 | grep -c any
 
-   Expected result: the connection is **reset** immediately (TCP RST).
+.. note::
+
+   **Reading the results.** ``000`` — and, if you use a plain ``&``/``wait`` loop,
+   curl **exit 7** ("couldn't connect") or **exit 56** ("recv failure") — mean the
+   connection was **reset by the limiter**: the mitigation working, not an error.
+   The ~20 that return **200** are the connections allowed under the cap.
 
 Task 3: Verify Recovery
 ------------------------
 
-#. Kill the background curl processes::
-
-      kill %1 %2 %3 %4 %5 %6 %7 %8 %9 2>/dev/null; wait
-
-#. Immediately send a new request::
+#. Once the burst above finishes (``wait`` returns, so every connection has
+   closed), send a new request::
 
       curl -so /dev/null -w "%{http_code}\n" http://10.1.10.55/
 
-   Expected result: **200** — the connection count drops as clients disconnect,
-   and new connections are accepted again.
+   Expected result: **200** — as connections close, ``CLIENT_CLOSED`` decrements
+   the counter, so new connections are accepted again.
 
 .. important::
 
