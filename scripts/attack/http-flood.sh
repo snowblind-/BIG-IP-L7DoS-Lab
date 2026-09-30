@@ -36,5 +36,8 @@ else
 fi
 
 echo ""
-echo "Flood complete. Check BIG-IP DoS event logs:"
-echo "  Security > Event Logs > DoS > Application Events"
+echo "Flood complete."
+echo "  - ASM DoS-profile labs (Module 3): Security > Event Logs > DoS > Application Events"
+echo "  - iRule labs (Module 1): rejections are iRule HTTP::respond 429s (Server: BigIP in the"
+echo "    ab summary) and do NOT appear in the ASM DoS event log; add a log statement or an"
+echo "    LTM request-logging profile to record them."
