@@ -139,7 +139,7 @@ You should see ``X-L7DoS-Signature: missing-client-headers`` and
 You can also drive the existing flood script (which does **not** send the
 headers) and watch it collapse to the cap::
 
-   bash ~/lab/scripts/attack/http-flood.sh http://10.1.10.55 30 50
+   bash /home/ec2-user/lab/scripts/attack/http-flood.sh http://10.1.10.55 30 50
 
 Task 5: Demonstrate effectiveness under load
 ---------------------------------------------

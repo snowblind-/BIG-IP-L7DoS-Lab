@@ -66,7 +66,7 @@ Task 2: Establish a Latency Baseline
 #. **(kali)** Run the baseline traffic script to allow BIG-IP to learn normal
    server response times::
 
-      bash ~/lab/scripts/setup/baseline-traffic.sh http://10.1.10.63 300
+      bash /home/ec2-user/lab/scripts/setup/baseline-traffic.sh http://10.1.10.63 300
 
    Allow this to run for at least 5 minutes.
 
@@ -93,7 +93,7 @@ Task 3: Simulate a Slow Server Under Attack
 
 #. From the attack client, generate a high-concurrency load::
 
-      bash ~/lab/scripts/attack/http-flood.sh http://10.1.10.63 60 80
+      bash /home/ec2-user/lab/scripts/attack/http-flood.sh http://10.1.10.63 60 80
 
 #. Observe in **Security > DoS Protection > DoS Overview**:
 

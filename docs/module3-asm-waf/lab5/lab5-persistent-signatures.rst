@@ -158,7 +158,7 @@ generated.
 
 #. Run the behavioral attack from Lab 2 so BADoS generates dynamic signatures::
 
-      bash ~/lab/scripts/attack/http-flood.sh http://10.1.10.63 60 100
+      bash /home/ec2-user/lab/scripts/attack/http-flood.sh http://10.1.10.63 60 100
 
 #. On the **Dynamic** tab, review the generated signatures (each expands to show
    its predicate list). Pick an effective one, select it, and click **Make
