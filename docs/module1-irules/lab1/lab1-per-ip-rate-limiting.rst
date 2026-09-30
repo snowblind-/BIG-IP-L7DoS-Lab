@@ -84,9 +84,18 @@ Task 2: Verify Baseline Behavior
 Task 3: Trigger the Rate Limit
 --------------------------------
 
-#. From the attack client, run a short HTTP flood that exceeds the threshold::
+#. **First ensure the Hackazon backend is at full CPU.** The container is
+   CPU-limited by default, which holds ``ab`` to ~30 rps — below the 100 req/s
+   limit — so nothing is rejected. On the Hackazon **Web Shell** (``10.1.1.5``)
+   remove the limit::
 
-      ab -n 500 -c 50 http://10.1.10.55/
+      docker ps                                  # note the Hackazon container
+      docker update --cpus=0 <hackazon-container>   # 0 = no CPU limit (full speed)
+
+#. From the attack client, run the flood (``-l`` accepts the variable page length
+   so the dynamic body isn't miscounted as failures)::
+
+      ab -n 500 -c 50 -l http://10.1.10.55/
 
 #. Observe the response codes in the ``ab`` summary. You should see a mix of
    **200** (within threshold) and **429** (threshold exceeded) responses.
@@ -102,12 +111,49 @@ Task 3: Trigger the Rate Limit
      traffic. (Or TMUI: Statistics > Module Statistics > Local Traffic > Virtual
      Servers.)
 
-   The Hackazon backend runs in a **Docker container** on ``10.1.1.5``, so there
-   is no ``/var/log/nginx/access.log`` on the host. To watch backend requests
-   directly, open the Hackazon **Web Shell** and use ``docker ps`` then
-   ``docker logs -f <hackazon-container>`` (or ``docker exec -it
-   <hackazon-container> tail -f /var/log/nginx/access.log`` if the image runs
-   nginx internally).
+   The Hackazon backend runs **Apache** in a Docker container on ``10.1.1.5``, so
+   there is no ``/var/log/nginx/`` on the host. To watch backend requests
+   directly, open the Hackazon **Web Shell** and tail its access log::
+
+      tail -20 /var/log/apache2/other_vhosts_access.log
+
+   If that log lives inside the container rather than on the host, locate it with
+   ``docker ps`` then ``docker exec -it <hackazon-container> tail -20
+   /var/log/apache2/other_vhosts_access.log``.
+
+Interpreting the ``ab`` output
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A successful run (full-CPU backend) looks like this::
+
+   Concurrency Level:      50
+   Time taken for tests:   3.126 seconds
+   Complete requests:      500
+   Failed requests:        499
+      (Connect: 0, Receive: 0, Length: 499, Exceptions: 0)
+   Non-2xx responses:      400
+   Requests per second:    159.96 [#/sec] (mean)
+   ...
+   Percentage of the requests served within a certain time (ms)
+     50%      1
+     90%   1497
+    100%   1762 (longest request)
+
+Read it like this:
+
+- **Non-2xx responses: 400** — the rate limit working: 400 requests got **429**
+  (rejected), 100 got **200** (within the 100 req/s window). *No* ``Non-2xx`` line
+  means the limit never tripped — the backend was still CPU-limited and ``ab``
+  stayed under 100 rps; run ``docker update --cpus=0`` on the container and re-run.
+- **Failed requests: 499 (Length: 499)** — **not** failures or blocks. ``ab`` flags
+  every response whose body length differs from the first; the 200s are the ~64 KB
+  page and the 429s are a tiny message, so lengths vary. ``-l`` silences it — all
+  are real 200/429 responses.
+- **The percentile split is the proof the 429s never touch the backend:** 50% of
+  requests finished in **1 ms** (the 429s, answered in the TMM fast path) while 90%
+  took **~1.5 s** (the 200s that reached the Hackazon container).
+- **159.96 rps** — the achieved rate this run, above the 100/s threshold, which is
+  why the 429s appeared.
 
 .. important::
 
