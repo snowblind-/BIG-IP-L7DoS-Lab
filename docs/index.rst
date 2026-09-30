@@ -54,8 +54,46 @@ Prerequisites
 - BIG-IP VE 15.1 or later (lab blueprint uses 17.1.0.1)
 - ASM / Advanced WAF provisioned (required for Module 3 only)
 - TMUI access: ``https://10.1.1.11``
-- SSH access to BIG-IP and the attack client
+- Web Shell access to the lab instances (UDF UI) — see below
 - ``curl``, ``ab`` (apache2-utils), or ``wrk`` on the attack client
+
+Accessing the lab environment
+-----------------------------
+
+Every instance has a **Web Shell** in the UDF UI that opens a **root** shell
+directly. Use it wherever a lab says "SSH to", "run on", or "from" a host
+(kali, win-client, the Hackazon/LAMP/ELK servers, the BIG-IP) — no SSH client or
+credentials required. For graphical access — the Windows client, or a browser
+inside the lab — use the **superjump** host's **Guacamole** interface (RDP to
+win-client plus consoles for the other instances).
+
+Management addresses (mgmt subnet ``10.1.1.0/24``):
+
+.. list-table::
+   :header-rows: 1
+   :widths: 42 22 36
+
+   * - Instance
+     - Mgmt IP
+     - Access
+   * - BIG-IP
+     - ``10.1.1.11``
+     - TMUI ``https://10.1.1.11`` + Web Shell
+   * - kali (attacker)
+     - ``10.1.1.7``
+     - Web Shell
+   * - win-client (good client)
+     - ``10.1.1.6``
+     - Guacamole (RDP)
+   * - Hackazon (Docker backend)
+     - ``10.1.1.5``
+     - Web Shell
+   * - ELK / DVGA (Device ID+ / Kibana)
+     - ``10.1.1.10``
+     - Web Shell + Kibana
+   * - superjump
+     - ``10.1.1.8``
+     - Guacamole / XRDP
 
 .. toctree::
    :maxdepth: 1

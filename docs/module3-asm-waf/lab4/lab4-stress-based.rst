@@ -76,13 +76,20 @@ Task 2: Establish a Latency Baseline
 Task 3: Simulate a Slow Server Under Attack
 --------------------------------------------
 
-#. On the Hackazon server (the ``Hackazon_pool`` member; get its IP with ``tmsh list ltm pool Hackazon_pool``), start a script that introduces
-   artificial latency for high-concurrency requests (simulating a server
-   under load)::
+#. Open the **Web Shell** for the Hackazon server (UDF UI; mgmt ``10.1.1.5``,
+   pool member ``10.1.20.20``) — it drops you in as root. Introduce artificial
+   latency so the backend slows under concurrent load::
 
-      ssh root@<hackazon-member> \
-        "echo 'limit_req_zone \$binary_remote_addr zone=slow:10m rate=5r/s;' \
-         >> /etc/nginx/nginx.conf && nginx -s reload"
+      echo 'limit_req_zone $binary_remote_addr zone=slow:10m rate=5r/s;' \
+        >> /etc/nginx/nginx.conf && nginx -s reload
+
+   .. note::
+
+      Hackazon runs in Docker on this host. If its web server is inside the
+      container rather than on the host, run the change in the container
+      (``docker ps`` then ``docker exec -it <hackazon-container> ...``) or target
+      whatever fronts the app. The goal is simply to make the backend respond
+      slowly under load.
 
 #. From the attack client, generate a high-concurrency load::
 
@@ -117,10 +124,9 @@ Task 4: Verify Proportional Throttling
 Task 5: Clean Up
 -----------------
 
-#. Remove the artificial latency from the web server::
+#. In the Hackazon **Web Shell**, remove the artificial latency::
 
-      ssh root@<hackazon-member> \
-        "sed -i '/limit_req_zone/d' /etc/nginx/nginx.conf && nginx -s reload"
+      sed -i '/limit_req_zone/d' /etc/nginx/nginx.conf && nginx -s reload
 
 #. Verify server response times return to baseline in the DoS Overview
    dashboard.
