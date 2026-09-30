@@ -14,10 +14,8 @@ when RULE_INIT {
 
     # Exact match or prefix match — adjust the [string match] below as needed
     set static::protected_uris {
-        "/api/login"
-        "/api/register"
         "/search"
-        "/checkout"
+        "/user/login"
     }
 }
 

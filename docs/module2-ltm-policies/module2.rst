@@ -15,9 +15,8 @@ protection (Module 3).
        │
        ▼
    LTM Policy (conditions evaluated top-down, first match wins)
-       ├── URI starts with /api/login  → insert header X-RateLimit-Profile: strict
+       ├── URI starts with /user/login → insert header X-RateLimit-Profile: strict
        ├── URI starts with /search     → insert header X-RateLimit-Profile: medium
-       ├── URI starts with /api/       → insert header X-RateLimit-Profile: medium
        └── default                     → insert header X-RateLimit-Profile: permissive
        │
        ▼

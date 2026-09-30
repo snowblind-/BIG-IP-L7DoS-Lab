@@ -8,14 +8,8 @@
 
 ltm data-group internal rate_limit_paths {
     records {
-        /api/login { data "strict" }
-        /api/register { data "strict" }
-        /checkout { data "strict" }
-        /api/password-reset { data "strict" }
+        /user/login { data "strict" }
         /search { data "medium" }
-        /api/ { data "medium" }
-        /products { data "medium" }
-        /downloads/ { data "permissive" }
     }
     type string
     description "URI prefix to rate limit profile mapping. Edit records to add/remove paths without policy changes."

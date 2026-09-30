@@ -17,7 +17,7 @@
                 "type": "httpUri",
                 "pathSegment": {
                   "operand": "starts-with",
-                  "values": ["/api/login", "/api/register", "/checkout"]
+                  "values": ["/user/login"]
                 }
               }
             ],
@@ -39,7 +39,7 @@
                 "type": "httpUri",
                 "pathSegment": {
                   "operand": "starts-with",
-                  "values": ["/search", "/api/"]
+                  "values": ["/search"]
                 }
               }
             ],

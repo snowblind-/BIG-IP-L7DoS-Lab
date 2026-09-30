@@ -25,18 +25,12 @@ Task 1: Upload and Attach the iRule
       * - URI Prefix
         - Threshold (req/s)
         - Rationale
-      * - ``/api/login``
-        - 20
-        - Credential stuffing target
-      * - ``/api/register``
-        - 20
-        - Account creation abuse
       * - ``/search``
         - 20
         - Expensive DB query
-      * - ``/checkout``
+      * - ``/user/login``
         - 20
-        - Payment flow abuse
+        - Credential-stuffing target
 
 #. Click **Finished**.
 
@@ -64,18 +58,36 @@ Task 2: Test an Unprotected Path
 Task 3: Test a Protected Path
 -------------------------------
 
-#. Flood the login endpoint::
+#. First confirm the path returns **200** on a plain GET (so you are testing the
+   rate limiter, not a backend error) and that the **per-URI** iRule is the one
+   attached::
 
-      ab -n 200 -c 20 http://10.1.10.55/api/login
+      curl -si http://10.1.10.55/search | head -1
+      tmsh list ltm virtual vs-lab-irules rules     # expect: rules { rate-limit-per-uri }
 
-   Expected result: the first ~20 requests (within the 1-second window) return
-   **200**; subsequent requests in the same window return **429**.
+#. Flood the protected search endpoint (backend at full CPU — see the note at the
+   top of the lab)::
+
+      ab -n 400 -c 20 -l http://10.1.10.55/search
+
+   Expected result: the first ~20 requests (the 1-second window) return **200**;
+   the rest return **429**, shown as ``Non-2xx responses: <N>`` in the summary.
 
 #. Confirm the unprotected path is still available in the same second::
 
       curl -so /dev/null -w "%{http_code}\n" http://10.1.10.55/
 
    Expected result: **200** — the ``/`` path is unaffected.
+
+.. note::
+
+   **Reading the result.** ``Non-2xx responses`` is your 429 count; ~20 requests
+   getting **200** is the threshold working. The **body size** is the tell for a
+   *real* rate-limit hit — the iRule's 429 is the 38-byte
+   ``Rate limit exceeded for this endpoint.`` message. If ``ab`` reports a
+   different size (e.g. a 45-byte 404), you are hitting a **backend** response on a
+   path that does not exist, not the limiter. ``Failed requests: … (Length: …)`` is
+   just the dynamic page varying in size — not real failures (``-l`` silences it).
 
 Task 4: Add a New Protected Path at Runtime
 --------------------------------------------
@@ -85,21 +97,19 @@ in the iRule definition.
 
 #. Navigate to **Local Traffic > iRules**, click **rate-limit-per-uri**.
 
-#. Add ``/api/password-reset`` to ``static::protected_uris``::
+#. Add ``/user/login`` to ``static::protected_uris``::
 
       set static::protected_uris {
-          "/api/login"
-          "/api/register"
           "/search"
-          "/checkout"
-          "/api/password-reset"
+          "/user/login"
       }
 
 #. Click **Update**.
 
-#. Verify the new path is now protected::
+#. Verify the new path is now protected (confirm it is 200 first)::
 
-      ab -n 100 -c 20 http://10.1.10.55/api/password-reset
+      curl -si http://10.1.10.55/user/login | head -1
+      ab -n 400 -c 20 -l http://10.1.10.55/user/login
 
 .. important::
 

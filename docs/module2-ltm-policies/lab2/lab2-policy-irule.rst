@@ -67,14 +67,13 @@ Task 2: Create the LTM Policy
 
    **Rule 1 — strict-paths**
 
-   - Condition: **HTTP URI** | **path** | **begins with** |
-     ``/api/login /api/register /checkout``
+   - Condition: **HTTP URI** | **path** | **begins with** | ``/user/login``
    - Action: **HTTP Header** | **Insert** | Name: ``X-RateLimit-Profile`` |
      Value: ``strict``
 
    **Rule 2 — medium-paths**
 
-   - Condition: **HTTP URI** | **path** | **begins with** | ``/search /api/``
+   - Condition: **HTTP URI** | **path** | **begins with** | ``/search``
    - Action: **HTTP Header** | **Insert** | Name: ``X-RateLimit-Profile`` |
      Value: ``medium``
 
@@ -109,24 +108,28 @@ Task 3: Attach Policy and iRule to the Virtual Server
 Task 4: Test Per-Path Rate Limiting
 -------------------------------------
 
-#. Test the **strict** profile on the login endpoint (limit: 10 req/s)::
+   (Backend at full CPU — see the note at the top of the lab. Confirm each path is
+   **200** first with ``curl -si http://10.1.10.56<path> | head -1``.)
 
-      ab -n 100 -c 15 http://10.1.10.56/api/login
+#. Test the **strict** profile on the login page (limit: 10 req/s)::
 
-   You should see **429** responses once the client exceeds 10 req/s.
+      ab -n 400 -c 20 -l http://10.1.10.56/user/login
+
+   You should see **429** (``Non-2xx``) once the client exceeds 10 req/s — ~10
+   pass, the rest are rejected.
 
 #. Test the **medium** profile on search (limit: 50 req/s)::
 
-      ab -n 200 -c 20 http://10.1.10.56/search
+      ab -n 400 -c 20 -l http://10.1.10.56/search
 
-   You should be able to sustain ~50 req/s before 429s appear.
+   Higher throughput is allowed before 429s appear (~50 req/s).
 
 #. Confirm the **permissive** home page is unaffected at moderate rates::
 
-      ab -n 200 -c 20 http://10.1.10.56/
+      ab -n 200 -c 20 -l http://10.1.10.56/
 
-   Expected result: all **200** responses at 20 req/s (well below the
-   200 req/s permissive limit).
+   Expected result: all **200** at moderate load (well below the 200 req/s
+   permissive limit).
 
 Task 5: Add a New Protected Path Without Editing the iRule
 -----------------------------------------------------------
@@ -134,14 +137,16 @@ Task 5: Add a New Protected Path Without Editing the iRule
 #. Navigate to **Local Traffic > Policies**, click **path-rate-policy**,
    and click **Edit Draft** (or create a new draft).
 
-#. In **Rule 1 (strict-paths)**, add ``/api/password-reset`` to the
-   condition values.
+#. In **Rule 1 (strict-paths)**, add ``/search`` to the condition values.
+   Because Rule 1 is evaluated **first** (``first-match``), ``/search`` is now
+   classified **strict** instead of medium.
 
 #. Click **Save Draft**, then **Publish**.
 
-#. Verify the new path is now rate-limited at the strict threshold::
+#. Verify ``/search`` now trips at the *strict* threshold (10 req/s) — far sooner
+   than the medium 50 req/s it hit in Task 4::
 
-      ab -n 100 -c 15 http://10.1.10.56/api/password-reset
+      ab -n 400 -c 20 -l http://10.1.10.56/search
 
    The iRule was not modified — only the policy changed.
 

@@ -126,8 +126,8 @@ Lab 3 — Data-group driven
 
 **Overlapping prefixes:** F5 string data-groups are evaluated as a prefix tree, so
 ``class match -value $uri starts_with rate_limit_paths`` returns the *longest*
-matching prefix — ``/api/login`` matches the ``/api/login`` entry rather than
-``/api/`` when both exist. If precedence is critical, keep entries non-overlapping
+matching prefix — ``/user/login`` matches the ``/user/login`` entry rather than
+a broad ``/user`` when both exist. If precedence is critical, keep entries non-overlapping
 or handle specific-before-general explicitly, and test — don't assume ordering.
 
 **Data-group vs external source:** a data-group is in-memory, fast, and dependency
@@ -163,7 +163,7 @@ baseline (subject to any absolute floors/ceilings you set) — a relative thresh
 not a fixed number.
 
 **Per-URL thresholds:** in the DoS profile's TPS-based detection, define
-URL-specific entries (e.g. ``/api/login``) with stricter TPS/percentage thresholds
+URL-specific entries (e.g. ``/user/login``) with stricter TPS/percentage thresholds
 than the site-wide default.
 
 Lab 2 — Behavioral DoS (BADoS)

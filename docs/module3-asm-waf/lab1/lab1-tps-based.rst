@@ -136,4 +136,4 @@ Questions
   source rate is 5× the **baseline**. What is the baseline, and how is it
   calculated in TPS-based mode?
 - How would you configure different thresholds for different URLs
-  (e.g., stricter for ``/api/login`` than for ``/``)?
+  (e.g., stricter for ``/user/login`` than for ``/``)?

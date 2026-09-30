@@ -77,13 +77,13 @@ Task 2: Create the LTM Policy
    **Rule 1 — Strict paths**
 
    - Name: ``strict-paths``
-   - Condition: **HTTP URI** | **path** | **begins with** | ``/api/login /api/register /checkout``
+   - Condition: **HTTP URI** | **path** | **begins with** | ``/user/login``
    - Action: **Traffic Rate Limiting** | ``rate-filter-strict``
 
    **Rule 2 — Medium paths**
 
    - Name: ``medium-paths``
-   - Condition: **HTTP URI** | **path** | **begins with** | ``/search /api/``
+   - Condition: **HTTP URI** | **path** | **begins with** | ``/search``
    - Action: **Traffic Rate Limiting** | ``rate-filter-medium``
 
    **Rule 3 — Default**
@@ -110,18 +110,25 @@ Task 3: Attach the Policy to the Virtual Server
 Task 4: Test Bandwidth Shaping
 --------------------------------
 
-#. From the attack client, download a large file via the strict path and
-   observe the capped rate::
+#. From the attack client, download via the **strict** path and observe the
+   capped transfer rate::
 
-      curl -o /dev/null --progress-bar http://10.1.10.56/api/login-assets/bundle.js
+      curl -o /dev/null -w "strict: %{speed_download} bytes/s\n" http://10.1.10.56/user/login
 
-   The download should be capped near **1 Mbps**.
+   The transfer is shaped down toward **1 Mbps**.
 
-#. Download the same file via the permissive path::
+#. Download via the **permissive** path::
 
-      curl -o /dev/null --progress-bar http://10.1.10.56/assets/bundle.js
+      curl -o /dev/null -w "permissive: %{speed_download} bytes/s\n" http://10.1.10.56/
 
-   The download should be significantly faster (**up to 100 Mbps**).
+   Expected: significantly faster (**up to 100 Mbps**).
+
+   .. note::
+
+      Hackazon's pages are small (tens of KB), so the cap is clearest on a larger
+      asset or a looped/sustained transfer. If your build serves a large static
+      file (a product image or JS bundle), download that via each path for a
+      sharper contrast.
 
 .. important::
 

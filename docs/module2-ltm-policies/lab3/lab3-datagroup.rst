@@ -30,14 +30,7 @@ Task 1: Create the Datagroup
       tmsh create ltm data-group internal rate_limit_paths \
           type string \
           records add {
-              /api/login           { data "strict" }
-              /api/register        { data "strict" }
-              /checkout            { data "strict" }
-              /api/password-reset  { data "strict" }
-              /search              { data "medium" }
-              /api/                { data "medium" }
-              /products            { data "medium" }
-              /downloads/          { data "permissive" }
+              /search      { data "medium" }
           }
 
 #. Verify the datagroup::
@@ -71,36 +64,39 @@ Task 2: Update the LTM Policy to Use the Datagroup
 Task 3: Verify Existing Paths Still Work
 -----------------------------------------
 
-#. Test a strict path::
+#. Test the medium path (backend at full CPU; confirm 200 first with
+   ``curl -si http://10.1.10.56/search | head -1``)::
 
-      ab -n 100 -c 15 http://10.1.10.56/api/login
+      ab -n 400 -c 20 -l http://10.1.10.56/search
 
-   Expected: 429 responses once exceeding 10 req/s.
+   Expected: **429** (``Non-2xx``) once exceeding 50 req/s.
 
-#. Test a medium path::
+#. Show that a path **not** in the datagroup is unrestricted — it falls to the
+   permissive default::
 
-      ab -n 200 -c 20 http://10.1.10.56/search
+      ab -n 400 -c 20 -l http://10.1.10.56/user/login
 
-   Expected: 429 responses once exceeding 50 req/s.
+   Expected: all **200** (``/user/login`` isn't in ``rate_limit_paths`` yet).
 
 Task 4: Add a New Path at Runtime Without Any Policy or iRule Change
 --------------------------------------------------------------------
 
-#. Add a new endpoint to the datagroup::
+#. Add ``/user/login`` to the datagroup as **strict**::
 
       tmsh modify ltm data-group internal rate_limit_paths \
-          records add { /api/new-feature { data "strict" } }
+          records add { /user/login { data "strict" } }
 
-#. Immediately test the new path — no reload required::
+#. Immediately re-test it — no reload required. It is now rate-limited where it
+   was unrestricted in Task 3::
 
-      ab -n 100 -c 15 http://10.1.10.56/api/new-feature
+      ab -n 400 -c 20 -l http://10.1.10.56/user/login
 
-   Expected: 429 responses at the strict threshold of 10 req/s.
+   Expected: **429** at the strict threshold of 10 req/s.
 
 #. Remove the path when no longer needed::
 
       tmsh modify ltm data-group internal rate_limit_paths \
-          records delete { /api/new-feature }
+          records delete { /user/login }
 
 Task 5: Persist the Datagroup Change
 --------------------------------------
@@ -120,7 +116,7 @@ Questions
 ~~~~~~~~~
 
 - How does the ``class match -value $uri starts_with rate_limit_paths``
-  call handle URIs that match multiple datagroup entries (e.g., ``/api/login``
-  matching both ``/api/`` and ``/api/login``)?
+  call handle URIs that match multiple datagroup entries (e.g., if both a broad
+  ``/user`` prefix and a specific ``/user/login`` entry were present)?
 - What is the operational trade-off between using a datagroup vs. an external
   data source (like an iControl REST call) to feed the path list?

@@ -8,7 +8,7 @@
 
 echo "Creating rate filter traffic classes..."
 
-# Strict — for high-value endpoints (/api/login, /checkout)
+# Strict — for high-value endpoints (/user/login)
 tmsh create ltm traffic-class rate-filter-strict \
     rate 1mbps \
     burst-size 64kb
