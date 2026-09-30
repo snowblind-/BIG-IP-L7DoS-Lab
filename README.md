@@ -79,33 +79,33 @@ BIG-IP-L7DoS-Lab/
 
 ## Lab Scenarios
 
-> Participants complete every lab through the **BIG-IP UI (TMUI) or CLI (tmsh)** — no AS3 needed. The JSON files in the **Config** column are **AS3 declarations** kept as an optional shortcut for instructors to pre-stage a module; see *Deploying with AS3* in `docs/setup/lab-topology.rst`. (`.conf`/`.tcl`/`.sh` files are tmsh snippets, iRules, and scripts.)
+Participants complete every lab through the **BIG-IP UI (TMUI) or CLI (tmsh)** — no AS3 needed. The AS3 JSON declarations under `configs/` are an optional shortcut for instructors to pre-stage a module (see *Deploying with AS3* in `docs/setup/lab-topology.rst`). Click a scenario to open its lab guide.
 
 ### Module 1 — iRules
-| Scenario | Description | Config |
-|----------|-------------|--------|
-| 1.1 | Per-IP rate limiting | `configs/irules/rate-limit-per-ip.tcl` |
-| 1.2 | Per-URI rate limiting | `configs/irules/rate-limit-per-uri.tcl` |
-| 1.3 | Concurrent connection limit | `configs/irules/concurrent-conn-limit.tcl` |
-| 1.4 | Sliding window 429 | `configs/irules/sliding-window-429.tcl` |
-| 1.5 | Custom L7 DoS signature (header-absence rate limit) | `configs/irules/custom-l7dos-signature.tcl` |
+| Scenario | Lab guide |
+|----------|-----------|
+| 1.1 | [Per-IP rate limiting](docs/module1-irules/lab1/lab1-per-ip-rate-limiting.rst) |
+| 1.2 | [Per-URI rate limiting](docs/module1-irules/lab2/lab2-per-uri-rate-limiting.rst) |
+| 1.3 | [Concurrent connection limit](docs/module1-irules/lab3/lab3-concurrent-connections.rst) |
+| 1.4 | [Sliding window 429](docs/module1-irules/lab4/lab4-sliding-window.rst) |
+| 1.5 | [Custom L7 DoS signature (header-absence rate limit)](docs/module1-irules/lab5/lab5-custom-signature.rst) |
 
 ### Module 2 — LTM Policies
-| Scenario | Description | Config |
-|----------|-------------|--------|
-| 2.1 | Path-based rate filter | `configs/policies/rate-filters.sh` |
-| 2.2 | Policy + iRule event trigger | `configs/policies/path-rate-policy.json` |
-| 2.3 | Policy + datagroup (dynamic) | `configs/policies/datagroup-rate-policy.json` |
-| 2.4 | Reject known-bad paths | `configs/policies/reject-policy.json` |
+| Scenario | Lab guide |
+|----------|-----------|
+| 2.1 | [Path-based rate filter](docs/module2-ltm-policies/lab1/lab1-rate-filter.rst) |
+| 2.2 | [Policy + iRule event trigger](docs/module2-ltm-policies/lab2/lab2-policy-irule.rst) |
+| 2.3 | [Policy + datagroup (dynamic)](docs/module2-ltm-policies/lab3/lab3-datagroup.rst) |
+| 2.4 | [Reject known-bad paths](docs/module2-ltm-policies/lab4/lab4-reject-bad-paths.rst) |
 
 ### Module 3 — ASM / Advanced WAF
-| Scenario | Description | Config |
-|----------|-------------|--------|
-| 3.1 | TPS-based DoS profile | `configs/profiles/tps-dos-profile.json` |
-| 3.2 | Behavioral DoS (BADoS) + bad-actor detection | `configs/profiles/bados-profile.json` + `configs/irules/xff-traffic-shaping.tcl` (simulates many clients via XFF) |
-| 3.3 | Proactive Bot Defense | `configs/profiles/bot-defense-profile.json` (DoS profile) + `configs/profiles/bot-defense-standalone.conf` (standalone profile: verify before/after, per-bot rate limits) |
-| 3.4 | Stress-based detection | *(see docs/module3-asm-waf.md)* |
-| 3.5 | Custom persistent DoS signatures | `configs/profiles/dos-persistent-signature.conf` |
+| Scenario | Lab guide |
+|----------|-----------|
+| 3.1 | [TPS-based DoS profile](docs/module3-asm-waf/lab1/lab1-tps-based.rst) |
+| 3.2 | [Behavioral DoS (BADoS) + bad-actor detection](docs/module3-asm-waf/lab2/lab2-behavioral-dos.rst) |
+| 3.3 | [Proactive Bot Defense](docs/module3-asm-waf/lab3/lab3-bot-defense.rst) |
+| 3.4 | [Stress-based detection](docs/module3-asm-waf/lab4/lab4-stress-based.rst) |
+| 3.5 | [Custom persistent DoS signatures](docs/module3-asm-waf/lab5/lab5-persistent-signatures.rst) |
 
 ## Important Notice
 
