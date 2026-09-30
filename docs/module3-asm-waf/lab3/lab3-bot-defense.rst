@@ -98,7 +98,7 @@ Task 1: Create the DoS-Profile Bot Defense (baseline)
 TMUI (its proactive bot defense is far easier to configure in the UI than via
 ``tmsh``), then attach it by UI or CLI.
 
-#. **Security > DoS Protection > DoS Profiles > Create**. Name it
+#. **Security > DoS Protection > Protection Profiles > Create**. Name it
    ``lab_dos_bot_profile`` and click **Finished**, then open it and select the
    **Application Security** tab. (Section labels vary slightly by TMOS version.)
 

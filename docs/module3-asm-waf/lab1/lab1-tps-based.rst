@@ -39,7 +39,7 @@ Task 1: Verify ASM is Provisioned
 Task 2: Create the TPS-Based DoS Profile
 -----------------------------------------
 
-#. In the TMUI, navigate to **Security > DoS Protection > DoS Profiles**.
+#. In the TMUI, navigate to **Security > DoS Protection > Protection Profiles**.
 
 #. Click **Create**.
 

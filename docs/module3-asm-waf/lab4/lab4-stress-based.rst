@@ -34,7 +34,7 @@ legitimate heavy users.
 Task 1: Configure Stress-Based Detection
 -----------------------------------------
 
-#. Navigate to **Security > DoS Protection > DoS Profiles**, open
+#. Navigate to **Security > DoS Protection > Protection Profiles**, open
    ``lab-dos-bados``, and expand **Behavioral & Stress-based Detection**.
 
 #. Enable **Stress-based Detection** and configure:
