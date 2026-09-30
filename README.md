@@ -17,7 +17,8 @@ Each protection method runs on its own virtual server, all fronting the same Hac
 ```mermaid
 flowchart LR
     subgraph cl["Client subnet · 10.1.10.0/24"]
-        kali["kali — attack client<br/>10.1.10.100"]:::attacker
+        kali["kali — attack client<br/>10.1.10.100 · .200 = BaDOS attacker"]:::attacker
+        win["win-client 10.1.10.4<br/>Grafana / browser viewer"]:::client
     end
 
     subgraph bigip["BIG-IP VE 17.1.0.1 · mgmt 10.1.1.11"]
@@ -26,19 +27,23 @@ flowchart LR
         v2["vs-lab-ltm<br/>10.1.10.56:80<br/>Module 2 · LTM policies"]:::vip
         v3["vs-lab-dos<br/>10.1.10.63:80<br/>Module 3 · DoS profile"]:::vip
         v4["vs-lab-bot<br/>10.1.10.74:80<br/>Module 3 · Bot Defense"]:::vip
+        v5["vs_Hackazon_I<br/>10.1.10.61:80<br/>Module 3.2 · BaDOS demo"]:::demo
         pool[("Hackazon_pool")]:::pool
     end
 
     subgraph sv["Server subnet · 10.1.20.0/24"]
-        hack["Hackazon<br/>(Hackazon_pool member)"]:::backend
+        hack["Hackazon<br/>10.1.20.20:80"]:::backend
     end
 
-    kali --> v1 & v2 & v3 & v4
-    v1 & v2 & v3 & v4 --> pool
+    kali --> v1 & v2 & v3 & v4 & v5
+    v1 & v2 & v3 & v4 & v5 --> pool
     pool --> hack
+    win -. "Grafana / TMUI" .-> bigip
 
     classDef attacker fill:#ffe0e0,stroke:#c0392b,color:#111
+    classDef client fill:#fff3d6,stroke:#b8860b,color:#111
     classDef vip fill:#e3f0fd,stroke:#2b6cb0,color:#111
+    classDef demo fill:#efe0fb,stroke:#7b3fbf,color:#111
     classDef pool fill:#efe9d9,stroke:#8a6d3b,color:#111
     classDef backend fill:#e2f7e2,stroke:#2f855a,color:#111
 ```

@@ -12,12 +12,15 @@ Topology
 
 .. code-block:: text
 
-   [Attack Client]                     [BIG-IP VE 17.1.0.1]                [Backend]
-    kali 10.1.10.100 ───HTTP──▶  vs-lab-irules  10.1.10.55:80 ─┐
-                                 vs-lab-ltm     10.1.10.56:80 ─┤
-                                 vs-lab-dos     10.1.10.63:80 ─┼─▶ Hackazon_pool ──▶ Hackazon
-                                 vs-lab-bot     10.1.10.74:80 ─┘   (existing UDF pool,
-                                 mgmt 10.1.1.11                     live member)
+   [Clients]                            [BIG-IP VE 17.1.0.1 · mgmt 10.1.1.11]
+    kali       10.1.10.100  (.200 = BaDOS attacker)
+    win-client 10.1.10.4    (Grafana / browser viewer)
+        |
+        | HTTP        vs-lab-irules 10.1.10.55  Module 1 · iRules       -+
+        +----------▶  vs-lab-ltm    10.1.10.56  Module 2 · LTM policies -+
+                      vs-lab-dos    10.1.10.63  Module 3 · DoS profile  -+-▶ Hackazon_pool -▶ Hackazon
+                      vs-lab-bot    10.1.10.74  Module 3 · Bot Defense  -+       10.1.20.20
+                      vs_Hackazon_I 10.1.10.61  Module 3.2 · BaDOS demo -+
 
 Virtual server map
 ------------------
