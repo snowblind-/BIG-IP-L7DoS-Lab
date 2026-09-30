@@ -77,19 +77,26 @@ Task 3: Simulate a Slow Server Under Attack
 --------------------------------------------
 
 #. Open the **Web Shell** for the Hackazon server (UDF UI; mgmt ``10.1.1.5``,
-   pool member ``10.1.20.20``) — it drops you in as root. Introduce artificial
-   latency so the backend slows under concurrent load::
+   pool member ``10.1.20.20``) — it drops you in as root. The backend is an
+   **Apache container**, so induce latency by starving the container's CPU from
+   the host (no in-container tooling required)::
 
-      echo 'limit_req_zone $binary_remote_addr zone=slow:10m rate=5r/s;' \
-        >> /etc/nginx/nginx.conf && nginx -s reload
+      docker ps                                  # note the Hackazon container name/id
+      docker update --cpus=0.1 <hackazon-container>
+
+   With only a fraction of a CPU, the container's response times climb under the
+   attack load in Task 2 — that rising server latency is exactly what
+   stress-based detection keys on.
 
    .. note::
 
-      Hackazon runs in Docker on this host. If its web server is inside the
-      container rather than on the host, run the change in the container
-      (``docker ps`` then ``docker exec -it <hackazon-container> ...``) or target
-      whatever fronts the app. The goal is simply to make the backend respond
-      slowly under load.
+      This backend runs **Apache**, not nginx, so the older ``limit_req_zone``
+      config edit does not apply. If your Docker build doesn't support live
+      ``--cpus`` updates, peg the CPU from inside instead::
+
+         docker exec -d <hackazon-container> sh -c 'while :; do :; done'   # repeat a few times
+
+      Either way the goal is the same: make the backend respond slowly under load.
 
 #. From the attack client, generate a high-concurrency load::
 
@@ -124,9 +131,11 @@ Task 4: Verify Proportional Throttling
 Task 5: Clean Up
 -----------------
 
-#. In the Hackazon **Web Shell**, remove the artificial latency::
+#. In the Hackazon **Web Shell**, remove the artificial stress — restore the
+   container's CPU (``0`` = no limit), or restart it if you pegged CPU inside::
 
-      sed -i '/limit_req_zone/d' /etc/nginx/nginx.conf && nginx -s reload
+      docker update --cpus=0 <hackazon-container>
+      # or, if you used the busy-loop fallback:  docker restart <hackazon-container>
 
 #. Verify server response times return to baseline in the DoS Overview
    dashboard.
