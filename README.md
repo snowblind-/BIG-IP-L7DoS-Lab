@@ -65,7 +65,7 @@ BIG-IP-L7DoS-Lab/
 
 ## Prerequisites
 
-- BIG-IP 14.1+ (or BIG-IP Next)
+- BIG-IP 14.1+ (lab blueprint uses 17.1.0.1)
 - ASM / Advanced WAF license for DoS profiles
 - Lab network access configured per `docs/network-topology.md`
 
