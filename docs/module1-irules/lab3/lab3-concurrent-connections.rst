@@ -88,7 +88,28 @@ Task 3: Verify Recovery
    The ``CLIENT_CLOSED`` event decrements the counter when a connection closes
    cleanly. For abruptly dropped connections (e.g., client crash), BIG-IP's
    TCP half-open timeout will eventually clean up the connection state and
-   fire ``CLIENT_CLOSED``.
+   fire ``CLIENT_CLOSED``. As a safety net, the counter also carries a **60 s idle
+   timeout** and a **300 s hard lifetime**, so a stale count self-heals rather
+   than permanently rejecting new connections.
+
+Reset and teardown
+------------------
+
+#. The counter self-heals — if the client stops connecting, its entry expires
+   after the idle timeout (60 s). To clear it immediately, drop the client's
+   connections::
+
+      tmsh delete sys connection cs-client-addr 10.1.10.100
+
+#. Restore the virtual server for the next lab by detaching the iRule::
+
+      tmsh modify ltm virtual vs-lab-irules rules none
+
+.. note::
+
+   If a burst ever caps far below 20, the counter is wedged from a prior run —
+   wait for the idle timeout, or run the ``delete sys connection`` above. (The
+   TTLs above prevent this from persisting.)
 
 Questions
 ~~~~~~~~~
