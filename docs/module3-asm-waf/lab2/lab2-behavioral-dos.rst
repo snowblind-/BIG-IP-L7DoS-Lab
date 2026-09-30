@@ -15,9 +15,9 @@ drives the blueprint's ready-made BaDOS demo from kali and validates it in
      - Notes
    * - Traffic (baseline + attack)
      - kali — Web Shell (root)
-     - Runs the prebuilt scripts in ``/home/ec2-user/``. ``AB_DOS.sh`` targets
-       ``10.1.10.61`` and binds the attack to source ``10.1.10.200`` (kali's
-       secondary IP — the one the demo's XFF iRule tags as the bad actor)
+     - All from kali, split by source IP: baseline binds ``10.1.10.100`` (good),
+       the attack binds ``10.1.10.200`` (bad). The demo's ``XFF_mixed_Attacker_Good``
+       iRule on ``10.1.10.61`` maps ``.100`` → good and ``.200`` → attacker
    * - Validation dashboard
      - win-client — Guacamole RDP → Chrome
      - **Grafana** (``admin``/``admin``) → *Health and Mitigations*
@@ -37,36 +37,43 @@ drives the blueprint's ready-made BaDOS demo from kali and validates it in
 
    This lab reuses the environment's ready BaDOS demo, so the good-vs-bad-actor
    split, XFF handling, and logging are already configured on ``vs_Hackazon_I`` —
-   there is nothing to build first. (For a build-it-yourself version on
-   ``vs-lab-dos`` using ``configs/irules/xff-traffic-shaping.tcl`` + the
-   ``XFF-http`` profile + the PowerShell baseline, see *Alternative* at the end.)
+   there is nothing to build first — it is **entirely kali-driven**: the good
+   baseline and the attack both originate from kali, distinguished only by source
+   IP (``.100`` good vs ``.200`` attacker). Win-client is used only to view
+   Grafana. (For a build-it-yourself variant on ``vs-lab-dos``, see *Alternative*
+   at the end.)
 
 Task 1: Generate baseline traffic
 ---------------------------------
 
 BADoS needs a learning period on normal traffic before it can spot anomalies.
 
-#. **(kali)** In the kali Web Shell::
+#. **(kali)** The Web Shell opens as **root** in root's home, but the prebuilt
+   demo scripts live in ``/home/ec2-user/`` (not ``/root``). ``cd`` there before
+   running anything — ``baseline_menu.sh`` also reads
+   ``./source/useragents_with_bots.txt`` and ``./source/urls.txt`` by relative
+   path, so it must be launched from that directory::
 
-      cd /home/ec2-user/
+      cd /home/ec2-user/     # prompt becomes root@kali:/home/ec2-user#
 
-#. **(kali)** Start the first baseline stream inside a detachable ``screen`` so it
-   keeps running::
+#. **(kali)** Start the **increasing** baseline pattern inside a detachable
+   ``screen`` so it keeps running::
 
       screen        # press ENTER at the banner
       ./baseline_menu.sh
-      # choose 1
+      # choose 1  (increasing)
 
    Detach with **Ctrl+a** then **d** (the stream keeps running in the background).
 
-#. **(kali)** Start the second baseline stream the same way::
+#. **(kali)** Start the **alternate** baseline pattern the same way::
 
       screen
       ./baseline_menu.sh
-      # choose 2
+      # choose 2  (alternate)
 
-   Detach again with **Ctrl+a** then **d**. (``screen -ls`` lists both running
-   sessions.)
+   Detach again with **Ctrl+a** then **d**. (``screen -ls`` lists both sessions.)
+   Both patterns source from ``10.1.10.100`` with randomised user-agents and
+   URLs, so BADoS learns a model built from many apparent legitimate clients.
 
 Task 2: Confirm learning in Grafana
 -----------------------------------
@@ -141,14 +148,15 @@ Teardown
 Alternative: build-it-yourself on ``vs-lab-dos``
 ------------------------------------------------
 
-To construct the same demo from scratch on the lab VIP instead of the prebuilt
-one, use ``vs-lab-dos`` with the ``lab_dos_bados_profile`` DoS profile, swap it to
-the ``XFF-http`` profile, attach ``configs/irules/xff-traffic-shaping.tcl``
-(good = win-client ``10.1.10.4``, attacker = kali), drive the good baseline from
-win-client with ``C:\lab\baseline-traffic.ps1`` and the attack from kali with
-``~/lab/scripts/attack/http-flood.sh``, and validate in the TMUI
-(**Security > DoS Protection > DoS Overview** → Bad Actors). This mirrors the
-prebuilt demo but is fully owned by the lab.
+To construct an equivalent demo from scratch on the lab VIP instead of the
+prebuilt one, use ``vs-lab-dos`` with ``lab_dos_bados_profile``, swap it to the
+``XFF-http`` profile, and attach ``configs/irules/xff-traffic-shaping.tcl`` — then
+generate a good baseline and an attack from sources the iRule classifies
+differently, and validate in the TMUI (**Security > DoS Protection > DoS
+Overview** → Bad Actors). Set the iRule's ``good``/``attack`` source lists to
+match whatever hosts you drive traffic from (e.g. win-client + the
+``C:\lab\baseline-traffic.ps1`` baseline, or kali's two addresses as the
+prebuilt demo does).
 
 Questions
 ~~~~~~~~~
