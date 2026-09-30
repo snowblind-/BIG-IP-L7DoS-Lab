@@ -124,9 +124,21 @@ with a fixed window.
 
    .. note::
 
-      With a fixed-window iRule, the second burst of 5 *could* succeed if
-      sent just after a window boundary, because the counter would have just
-      reset to zero.
+      **Interpreting the result.** The 200→429 flip *is* the sliding window
+      working: both bursts fall inside the trailing 5-second window, so the second
+      burst is counted *together with* the first — it inherits the running count
+      instead of getting a fresh allowance. That is the boundary-burst defense a
+      **fixed** window lacks: a fixed window resets its counter at each boundary,
+      so an attacker sending 50 requests at 0:04 and 50 more at 0:06 slips 100
+      through in two seconds (two separate windows). The sliding window sees all
+      100 within the last 5 s and rejects the overage — you are watching that same
+      effect at 5-request scale.
+
+#. **Teardown:** restore the production threshold you lowered for this task::
+
+      set static::sw_threshold 50
+
+   Edit the iRule and click **Update**, so the lab ends at the default 50-per-5 s.
 
 Questions
 ~~~~~~~~~
