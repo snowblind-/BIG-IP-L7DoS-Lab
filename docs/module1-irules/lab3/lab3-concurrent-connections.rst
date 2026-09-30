@@ -72,6 +72,11 @@ Task 2: Test the Connection Limit
    connection was **reset by the limiter**: the mitigation working, not an error.
    The ~20 that return **200** are the connections allowed under the cap.
 
+   You can also see the cap in the **timing**: the rejected connections print
+   ``000`` almost instantly (reset at connect), while the ~20 allowed ``200``
+   responses trickle in over the next ~1.5 s as they finish on the slow backend —
+   the split is visible in *when* the codes appear, not just the counts.
+
 Task 3: Verify Recovery
 ------------------------
 
