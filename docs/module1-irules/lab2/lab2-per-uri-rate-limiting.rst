@@ -6,6 +6,14 @@ such as authentication endpoints and search — while leaving general site
 traffic unrestricted. URI-specific limits protect expensive or
 security-sensitive endpoints without penalizing normal browsing.
 
+.. note::
+
+   This lab must exceed a per-second rate threshold. Ensure the Hackazon container
+   is at **full CPU** first — from the Hackazon Web Shell (``10.1.1.5``),
+   ``docker update --cpus=0 <hackazon-container>``. A CPU-limited backend caps
+   ``ab`` below the threshold so nothing is rejected. See
+   :doc:`/setup/lab-topology` (*Backend CPU state*).
+
 Task 1: Upload and Attach the iRule
 ------------------------------------
 

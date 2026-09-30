@@ -92,6 +92,28 @@ application under test is identical across methods.
    path to the same Hackazon backend, so you can hit it alongside a lab VIP to
    compare "no protection" against each mitigation.
 
+Backend CPU state (throughput vs. stress labs)
+----------------------------------------------
+
+The Hackazon container is **CPU-limited by default**, which caps how fast it
+responds — and therefore how many requests per second a closed-loop tool like
+``ab`` can drive through it. That cuts two opposite ways:
+
+- **Throughput labs** — Module 1 rate limiting, Module 2 policy rate tiers,
+  Module 3 TPS — must exceed a *per-second* threshold. A CPU-limited backend holds
+  ``ab`` below the threshold, so nothing is rejected and the demo looks broken.
+  Give the container full CPU first, from the Hackazon **Web Shell**
+  (``10.1.1.5``)::
+
+     docker ps
+     docker update --cpus=0 <hackazon-container>     # 0 = no limit (full speed)
+
+- **Stress-based detection** (Module 3 Lab 4) needs the *opposite* — a slow
+  backend — so it deliberately throttles (``docker update --cpus=0.1``) and
+  restores (``--cpus=0``) afterward.
+- **Concurrent-connection limiting** (Module 1 Lab 3) is unaffected: it counts
+  open connections, not rate, so backend speed doesn't matter.
+
 Create the virtual servers
 --------------------------
 
