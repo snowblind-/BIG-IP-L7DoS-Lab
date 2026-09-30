@@ -10,7 +10,7 @@
 ##                       cluster that bad-actor detection can greylist)
 ##
 ## REQUIRES: the virtual server's HTTP profile must have "Accept XFF" enabled
-## (profile xff_http), or the DoS profile ignores the injected header and keys on
+## (profile XFF-http), or the DoS profile ignores the injected header and keys on
 ## the real TCP source. When the source is learned from an L7 header, bad-actor
 ## mitigation is applied as an HTTP rate-limit rather than a TCP-based one.
 ##

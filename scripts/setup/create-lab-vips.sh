@@ -48,22 +48,15 @@ if [ "$collision" -ne 0 ]; then
     exit 1
 fi
 
-# --- HTTP profile that trusts X-Forwarded-For (for vs-lab-dos bad-actor demo) --
-# The DoS profile only keys bad-actor detection on XFF if the VS's HTTP profile
-# has Accept XFF enabled. vs-lab-dos uses xff_http; the other VIPs use plain http.
-if ! tmsh list ltm profile http xff_http >/dev/null 2>&1; then
-    echo "== Creating HTTP profile xff_http (accept-xff) =="
-    tmsh create ltm profile http xff_http defaults-from http accept-xff enabled
-fi
-
 # --- Atomic create: 4 VIPs in one cli transaction, all on Hackazon_pool ------
 # An HTTP virtual needs a TCP profile under the HTTP profile, hence { tcp http }.
+# (Lab 2 temporarily swaps vs-lab-dos to the XFF-http profile as a student step.)
 echo "== Creating VIPs in a single transaction (pool: $POOL_NAME) =="
 tmsh <<TMSH
 create cli transaction
 create ltm virtual vs-lab-irules destination $IRULES_VIP:80 ip-protocol tcp pool $POOL_NAME profiles add { tcp http } source-address-translation { type automap }
 create ltm virtual vs-lab-ltm destination $LTM_VIP:80 ip-protocol tcp pool $POOL_NAME profiles add { tcp http } source-address-translation { type automap }
-create ltm virtual vs-lab-dos destination $DOS_VIP:80 ip-protocol tcp pool $POOL_NAME profiles add { tcp xff_http } source-address-translation { type automap }
+create ltm virtual vs-lab-dos destination $DOS_VIP:80 ip-protocol tcp pool $POOL_NAME profiles add { tcp http } source-address-translation { type automap }
 create ltm virtual vs-lab-bot destination $BOT_VIP:80 ip-protocol tcp pool $POOL_NAME profiles add { tcp http } source-address-translation { type automap }
 submit cli transaction
 TMSH

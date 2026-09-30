@@ -46,9 +46,9 @@ Virtual server map
      - Module 3 — DoS profile: TPS (3.1), BADoS (3.2), stress (3.4), and the
        DoS-profile Proactive Bot Defense (3.3, Task 1)
      - ``lab_dos_*`` DoS profile (``tps-dos-profile.json`` /
-       ``bados-profile.json`` / ``bot-defense-profile.json``). Uses the
-       ``xff_http`` profile (Accept XFF) so BADoS bad-actor detection can key on
-       the ``xff-traffic-shaping`` iRule's header (Lab 2).
+       ``bados-profile.json`` / ``bot-defense-profile.json``). Lab 2 temporarily
+       swaps this VS to the ``XFF-http`` profile and attaches the
+       ``xff-traffic-shaping`` iRule for bad-actor detection (student steps).
    * - ``vs-lab-bot``
      - ``10.1.10.74:80``
      - Module 3 — standalone Bot Defense profile (3.3, Task 2+): verify

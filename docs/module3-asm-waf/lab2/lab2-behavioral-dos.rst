@@ -23,7 +23,7 @@ legitimate users keep flowing.
      - Runs the flood; the iRule gives it a narrow XFF range
    * - Virtual server
      - ``vs-lab-dos`` — ``10.1.10.63``
-     - HTTP profile ``xff_http`` (Accept XFF) + ``xff-traffic-shaping`` iRule
+     - HTTP profile ``XFF-http`` (Accept XFF) + ``xff-traffic-shaping`` iRule
    * - DoS profile
      - ``lab_dos_bados_profile``
      - Behavioral, bad-actor detection enabled (``bados-profile.json``)
@@ -42,26 +42,31 @@ random** value for the good source (``10.1.10.4``, looks like many users) and a
 .. important::
 
    For the DoS profile to key bad-actor detection on the injected header, the
-   VS's HTTP profile must have **Accept XFF** enabled — that is the ``xff_http``
+   VS's HTTP profile must have **Accept XFF** enabled — that is the ``XFF-http``
    profile on ``vs-lab-dos`` (created by ``scripts/setup/create-lab-vips.sh``).
    Without it, the header is ignored and detection falls back to the real TCP
    source. When the source is learned from XFF, bad-actor mitigation is applied
    as an **HTTP rate-limit** rather than a TCP-based one.
 
-Prep: attach the iRule
-----------------------
+Prep: enable XFF handling and attach the iRule
+----------------------------------------------
 
-#. Confirm ``vs-lab-dos`` uses the ``xff_http`` profile::
+Two student steps put ``vs-lab-dos`` into the state this lab needs, then undo them
+in Teardown so the other ``vs-lab-dos`` labs are unaffected.
 
-      tmsh list ltm virtual vs-lab-dos profiles
+#. Swap ``vs-lab-dos`` to the **XFF-http** profile so the DoS profile trusts the
+   injected header (the blueprint ships this Accept-XFF profile):
+
+   - **UI:** Local Traffic > Virtual Servers > ``vs-lab-dos`` > **Properties**,
+     set **HTTP Profile (Client)** = ``XFF-http``, **Update**.
+   - **CLI:** ``tmsh modify ltm virtual vs-lab-dos profiles delete { http } profiles add { XFF-http }``
 
 #. Create the iRule (**Local Traffic > iRules > Create**, paste
-   ``configs/irules/xff-traffic-shaping.tcl``), then attach it to the VS::
+   ``configs/irules/xff-traffic-shaping.tcl``) and attach it:
 
-      tmsh modify ltm virtual vs-lab-dos rules { xff-traffic-shaping }
-
-   Attach it for this lab only. Detach it afterwards (see Teardown) so the other
-   ``vs-lab-dos`` labs don't receive synthetic XFF.
+   - **UI:** ``vs-lab-dos`` > **Resources**, iRules **Manage**, add
+     ``xff-traffic-shaping``.
+   - **CLI:** ``tmsh modify ltm virtual vs-lab-dos rules { xff-traffic-shaping }``
 
 Task 1: Generate baseline traffic (from win-client)
 ---------------------------------------------------
@@ -157,12 +162,16 @@ Task 5: Verify legitimate traffic is preserved
 Teardown
 --------
 
-Detach the iRule so subsequent ``vs-lab-dos`` labs see real sources again::
+Undo both prep steps so subsequent ``vs-lab-dos`` labs see real sources on the
+plain HTTP profile::
 
    tmsh modify ltm virtual vs-lab-dos rules none
+   tmsh modify ltm virtual vs-lab-dos profiles delete { XFF-http } profiles add { http }
+   tmsh save sys config
 
-(The ``xff_http`` profile can stay — with no iRule injecting XFF and no upstream
-proxy, Accept XFF simply has nothing to act on and the real source is used.)
+(Leaving ``XFF-http`` attached is harmless once the iRule is gone — with nothing
+injecting XFF, Accept XFF has nothing to act on — but reverting keeps the VS
+identical to the other labs.)
 
 Questions
 ~~~~~~~~~

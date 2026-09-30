@@ -36,6 +36,27 @@ Module 3 uses **vs-lab-dos** (``10.1.10.63``) for the DoS-profile methods
 **vs-lab-bot** (``10.1.10.74``) for the standalone Bot Defense profile. See
 :doc:`/setup/lab-topology`.
 
+Before you begin: enable event logging
+--------------------------------------
+
+Every lab in this module validates through **Security > Event Logs**, which only
+populate if the virtual server has a security log profile. Attach the existing
+**L7-DOS_BOT_Logger** profile (it writes DoS-application and Bot Defense events to
+the local database) to both Module 3 VIPs before starting.
+
+**CLI**::
+
+   tmsh modify ltm virtual vs-lab-dos security-log-profiles add { L7-DOS_BOT_Logger }
+   tmsh modify ltm virtual vs-lab-bot security-log-profiles add { L7-DOS_BOT_Logger }
+   tmsh save sys config
+
+**UI:** Local Traffic > Virtual Servers > ``vs-lab-dos`` > **Security > Policies**,
+set **Log Profile** to *Enabled*, move **L7-DOS_BOT_Logger** into *Selected*,
+**Update**; repeat for ``vs-lab-bot``.
+
+If an Event Log stays empty during a lab, a missing log profile on the VS is the
+usual cause.
+
 .. toctree::
    :maxdepth: 1
    :caption: Labs
