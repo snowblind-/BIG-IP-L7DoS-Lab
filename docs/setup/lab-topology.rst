@@ -163,6 +163,49 @@ is attached.
    (duplicate-profile error). Building profiles via UI/CLI doesn't create the
    shadow, but the split is still the cleanest layout.
 
+Pre-staging the traffic scripts
+-------------------------------
+
+The labs run traffic generators from two hosts. Stage each script where it runs,
+at the path the labs expect:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 30 44
+
+   * - Runs from
+     - Script
+     - Stage at
+   * - kali (Linux, Web Shell = root)
+     - ``scripts/attack/http-flood.sh``,
+       ``scripts/setup/baseline-traffic.sh``
+     - ``~/lab/scripts/…`` (i.e. ``/root/lab/scripts/…``)
+   * - win-client (Windows Server)
+     - ``scripts/setup/baseline-traffic.ps1``
+     - ``C:\lab\baseline-traffic.ps1``
+
+win-client is Windows, so it uses the **PowerShell** ``baseline-traffic.ps1`` — it
+cannot run the bash ``baseline-traffic.sh``. All ``curl``/bash generators run from
+kali.
+
+**kali** — open its Web Shell (root) and pull the repo into ``~/lab`` so the paths
+match the labs::
+
+   git clone https://github.com/snowblind-/BIG-IP-L7DoS-Lab.git ~/lab
+   chmod +x ~/lab/scripts/attack/*.sh ~/lab/scripts/setup/*.sh
+
+If the instance has no Internet, copy the two ``.sh`` files in via the superjump
+**FileBrowser** or the RDP/Guacamole clipboard, keeping the ``~/lab/scripts/…``
+layout.
+
+**win-client** — place ``baseline-traffic.ps1`` at ``C:\lab\``. With Internet::
+
+   New-Item -ItemType Directory -Force C:\lab | Out-Null
+   Invoke-WebRequest -UseBasicParsing -OutFile C:\lab\baseline-traffic.ps1 `
+     https://raw.githubusercontent.com/snowblind-/BIG-IP-L7DoS-Lab/main/scripts/setup/baseline-traffic.ps1
+
+Otherwise copy it over via the Guacamole clipboard / a mapped drive.
+
 Deploying with AS3 (optional, for instructors)
 ----------------------------------------------
 

@@ -71,11 +71,14 @@ in Teardown so the other ``vs-lab-dos`` labs are unaffected.
 Task 1: Generate baseline traffic (from win-client)
 ---------------------------------------------------
 
-#. SSH/RDP to **win-client (10.1.10.4)** — the good source the iRule recognises.
+#. Connect to **win-client (10.1.10.4)** via superjump Guacamole RDP — the good
+   source the iRule recognises.
 
-#. Run the baseline traffic script for at least 10 minutes::
+#. Run the PowerShell baseline generator for at least 10 minutes (pre-staged at
+   ``C:\lab\`` — win-client is Windows Server, so it uses the ``.ps1``, not the
+   bash ``baseline-traffic.sh``)::
 
-      bash ~/lab/scripts/setup/baseline-traffic.sh http://10.1.10.63 600
+      powershell -ExecutionPolicy Bypass -File C:\lab\baseline-traffic.ps1 -Target http://10.1.10.63/ -DurationSec 600
 
    Each request is stamped with a different random XFF, so BADoS learns a model
    built from thousands of apparent legitimate clients.

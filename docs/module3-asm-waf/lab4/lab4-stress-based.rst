@@ -63,8 +63,8 @@ Task 1: Configure Stress-Based Detection
 Task 2: Establish a Latency Baseline
 --------------------------------------
 
-#. Run the baseline traffic script to allow BIG-IP to learn normal server
-   response times::
+#. **(kali)** Run the baseline traffic script to allow BIG-IP to learn normal
+   server response times::
 
       bash ~/lab/scripts/setup/baseline-traffic.sh http://10.1.10.63 300
 
