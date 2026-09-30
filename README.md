@@ -74,6 +74,8 @@ BIG-IP-L7DoS-Lab/
 
 ## Lab Scenarios
 
+> Participants complete every lab through the **BIG-IP UI (TMUI) or CLI (tmsh)** — no AS3 needed. The JSON files in the **Config** column are **AS3 declarations** kept as an optional shortcut for instructors to pre-stage a module; see *Deploying with AS3* in `docs/setup/lab-topology.rst`. (`.conf`/`.tcl`/`.sh` files are tmsh snippets, iRules, and scripts.)
+
 ### Module 1 — iRules
 | Scenario | Description | Config |
 |----------|-------------|--------|

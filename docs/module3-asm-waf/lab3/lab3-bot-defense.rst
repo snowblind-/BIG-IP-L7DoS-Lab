@@ -89,31 +89,53 @@ challenge is issued relative to the application seeing the request.
 The cookie flow is the same in every case: solve once, present the cookie on
 subsequent requests, and you are not re-challenged for the session.
 
-Task 1: Deploy the DoS-Profile Bot Defense (baseline)
+Task 1: Create the DoS-Profile Bot Defense (baseline)
 ------------------------------------------------------
 
-#. Deploy the AS3 declaration ``configs/profiles/bot-defense-profile.json``.
-   It sets ``botDefense.mode = always`` (proactive bot defense always on),
-   blocks suspicious browsers, and uses bot-signature categories to **report**
-   search engines/crawlers while **blocking** DOS tools and HTTP libraries.
+Build the DoS profile in the TMUI (its proactive bot defense is far easier to
+configure in the UI than via ``tmsh``), then attach it by UI or CLI.
 
-#. Confirm the profile and its bound categories::
+#. **Security > DoS Protection > DoS Profiles > Create**. Name it
+   ``lab_dos_bot_profile`` and click **Finished**, then open it and select the
+   **Application Security** tab. (Section labels vary slightly by TMOS version.)
 
-      tmsh list security dos profile lab_dos_bot_profile application botDefense
-      tmsh list security dos profile lab_dos_bot_profile application botSignatures
+#. Under **Proactive Bot Defense**, set **Operation Mode** to **Always**
+   (proactive, always on), and enable **Block Suspicious Browsers** and the
+   **CAPTCHA** challenge.
 
-#. Attach the DoS profile to ``vs-lab-dos``::
+#. Under **Bot Signatures**, enable bot-signature checking. Set the malicious
+   categories — **DOS Tool**, **HTTP Library**, **Network Scanner** — to
+   **Block**, and leave **Search Engine**, **Crawler**, and **Site Monitor** on
+   **Report** (log but allow legitimate automation).
 
-      tmsh modify ltm virtual vs-lab-dos profiles add { lab_dos_bot_profile }
+#. Attach the profile to ``vs-lab-dos``:
+
+   - **UI:** Local Traffic > Virtual Servers > ``vs-lab-dos`` > **Security >
+     Policies**, set **DoS Protection Profile** = ``lab_dos_bot_profile``,
+     **Update**.
+   - **CLI:** ``tmsh modify ltm virtual vs-lab-dos profiles add { lab_dos_bot_profile }``
+
+#. Confirm the settings (and capture the exact config for CLI reuse)::
+
+      tmsh list security dos profile lab_dos_bot_profile application
 
 .. note::
 
-   In AS3 3.29+ a DoS profile auto-generates a shadow Bot Defense profile named
-   ``f5_appsvcs_<dos-profile-name>_botDefense``. Binding a *separate* standalone
-   Bot Defense profile to the **same** virtual server then fails with a
-   duplicate-profile error. That is why this lab uses two VIPs: the DoS profile
-   (Task 1) is bound to ``vs-lab-dos`` and the standalone profile (Tasks 2+) to
-   ``vs-lab-bot``. See :doc:`/setup/lab-topology` for the full VIP map.
+   ``configs/profiles/bot-defense-profile.json`` is the same profile as an AS3
+   declaration — an **instructor** can pre-deploy it instead of clicking through
+   (see "Deploying with AS3"). Participants use the UI/CLI steps above.
+
+.. note::
+
+   The lab uses two VIPs so each method is demonstrated in isolation: the DoS
+   profile's proactive bot defense on ``vs-lab-dos`` (Task 1) and the standalone
+   Bot Defense profile on ``vs-lab-bot`` (Tasks 2+). There is also a hard reason
+   to keep them apart **if the DoS profile is deployed via AS3**: AS3 auto-
+   generates a shadow ``f5_appsvcs_<dos-profile-name>_botDefense`` profile, which
+   then collides with a separate standalone Bot Defense profile on the same VS
+   (duplicate-profile error). Building via UI/CLI (Task 1) doesn't create that
+   shadow profile, but keeping the split still gives the cleanest demo. See
+   :doc:`/setup/lab-topology` for the VIP map.
 
 Task 2: Deploy the Standalone Bot Defense Profile
 --------------------------------------------------

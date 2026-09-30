@@ -81,8 +81,10 @@ Task 1: Generate baseline traffic (from win-client)
 Task 2: Confirm the DoS profile
 -------------------------------
 
-#. Deploy ``bados-profile.json`` (or in TMUI open ``lab_dos_bados_profile`` under
-   **Security > DoS Protection > DoS Profiles**).
+#. Create the DoS profile in the TMUI: **Security > DoS Protection > DoS
+   Profiles > Create**, name it ``lab_dos_bados_profile``, then open it and
+   select the **Application Security** tab. (An instructor may instead pre-deploy
+   ``bados-profile.json`` via AS3 — see "Deploying with AS3".)
 
 #. Under **Behavioral & Stress-based Detection > Behavioral Detection and
    Mitigation**, confirm:

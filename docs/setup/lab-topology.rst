@@ -4,9 +4,8 @@ Lab Setup: Topology and Virtual Servers
 Each protection method in this guide is demonstrated on its **own virtual
 server**, all fronting the same Hackazon backend. Using separate VIPs keeps the
 methods from interfering with one another and lets you run them side by side
-against the same attack — and it is required for Bot Defense, where an AS3 DoS
-profile's auto-generated shadow bot profile would otherwise collide with the
-standalone Bot Defense profile on the same VS.
+against the same attack. (There's an extra reason to separate the two Bot Defense
+VIPs if you deploy DoS profiles via AS3 — see the note under the VS map.)
 
 Topology
 --------
@@ -157,11 +156,33 @@ is attached.
 
 .. important::
 
-   Keep ``vs-lab-dos`` and ``vs-lab-bot`` separate. Binding a standalone Bot
-   Defense profile to a virtual server that already carries an AS3-managed DoS
-   profile triggers a duplicate-profile error, because AS3 auto-generates a
-   shadow ``f5_appsvcs_<dos-profile>_botDefense`` profile. Splitting them across
-   two VIPs avoids the conflict entirely.
+   Keep ``vs-lab-dos`` and ``vs-lab-bot`` separate for a clean, isolated demo.
+   There is also a hard conflict **if you deploy DoS profiles via AS3**: AS3
+   auto-generates a shadow ``f5_appsvcs_<dos-profile>_botDefense`` profile, which
+   collides with a standalone Bot Defense profile on the same VS
+   (duplicate-profile error). Building profiles via UI/CLI doesn't create the
+   shadow, but the split is still the cleanest layout.
+
+Deploying with AS3 (optional, for instructors)
+----------------------------------------------
+
+Participants build every object through the **UI or CLI** steps in each lab — no
+AS3 required. The JSON files under ``configs/`` (``tps-dos-profile.json``,
+``bados-profile.json``, ``bot-defense-profile.json``, and the Module 2
+``*-policy.json`` files) are **AS3 declarations** kept as an optional shortcut:
+an instructor can pre-stage a whole module with one call instead of clicking
+through. They are reference/pre-provisioning artifacts, not the participant path.
+
+Deploy one (requires the AS3 RPM installed on the BIG-IP)::
+
+   # POST the declaration to the AS3 endpoint
+   curl -sk -u admin:<password> -H "Content-Type: application/json" \
+        -X POST https://10.1.1.11/mgmt/shared/appsvcs/declare \
+        -d @configs/profiles/bados-profile.json
+
+Then attach the resulting profile/policy to the relevant ``vs-lab-*`` VIP as the
+lab describes. If you deploy DoS profiles this way, mind the AS3 shadow-profile
+conflict noted above.
 
 Minimal variant
 ---------------
