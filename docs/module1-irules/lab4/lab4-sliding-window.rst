@@ -72,9 +72,19 @@ Task 1: Upload and Attach the iRule
 Task 2: Observe the Retry-After Response
 -----------------------------------------
 
-#. Flood the virtual server to exceed the threshold::
+#. Confirm the sliding-window iRule is the one attached (not a rate-limit iRule
+   from an earlier lab)::
 
-      ab -n 200 -c 20 http://10.1.10.55/
+      tmsh list ltm virtual vs-lab-irules rules    # expect: rules { sliding-window-429 }
+
+#. Flood the virtual server to exceed the threshold (50 requests in any 5-second
+   window). Even the slow backend's ~30 rps clears that (~150 in 5 s)::
+
+      ab -n 200 -c 20 -l http://10.1.10.55/
+
+   Expected: after the first ~50 requests in the window, the rest return **429** —
+   shown as ``Non-2xx responses: <N>`` in the ``ab`` summary. *No* ``Non-2xx`` line
+   means either the wrong iRule is attached or the rate stayed under 50/5 s.
 
 #. Use ``curl -v`` to inspect the full HTTP 429 response headers::
 

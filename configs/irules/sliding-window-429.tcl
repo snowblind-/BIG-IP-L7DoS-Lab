@@ -26,8 +26,6 @@ when HTTP_REQUEST {
     if { $ts_list eq "" } { set ts_list {} }
 
     # Evict timestamps outside the window
-    set ts_list [lsearch -all -inline -not $ts_list \
-        [lsearch -all -inline $ts_list *]]
     set fresh {}
     foreach ts $ts_list {
         if { $ts >= ($now - $static::sw_window) } {
@@ -37,7 +35,9 @@ when HTTP_REQUEST {
     lappend fresh $now
 
     # Persist updated list
-    table set $key $fresh $static::sw_window [expr { $static::sw_window * 2 }]
+    # Idle timeout = window; the entry self-expires once traffic stops (no
+    # absolute lifetime, which would periodically reset the window mid-stream).
+    table set $key $fresh $static::sw_window
 
     if { [llength $fresh] > $static::sw_threshold } {
         HTTP::respond 429 content "Too many requests." \
