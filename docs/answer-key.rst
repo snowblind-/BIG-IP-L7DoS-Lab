@@ -215,6 +215,34 @@ source IP (``disable-mitigation``) so only that traffic bypasses the signature,
 while the signature still blocks the user-agent everywhere else. Whitelist = scoped
 bypass; signature exception = global disable.
 
+**Headless browser passed the challenge — why it isn't "legitimate":** solving the
+JS challenge only proves the client runs JavaScript and handles cookies — which
+headless Firefox/Chrome, Selenium, and Puppeteer all do. It filters out plain
+scripts (curl), nothing more. Proactive Bot Defense pairs the challenge with
+browser-integrity/anomaly checks and bot signatures — headless/automation
+fingerprints, missing or abnormal browser attributes, behavioral signals, and
+device-ID consistency — so a JS-capable bot can still be flagged as a Suspicious
+Browser or matched to an automation signature. With Block Suspicious Browsers on,
+that headless client can be caught despite earning a cookie.
+
+**Cookie-replay outcomes and why F5 binds the cookie:** ``TSPD_101`` is signed and
+time-stamped, so it can't be forged or modified and it expires — but replay
+*across hosts* is governed by what it's bound to.
+
+- *same PASSED, alt CHALLENGED* → the cookie is bound to the source IP; a copy
+  presented from ``10.1.10.200`` fails and that host is re-challenged.
+- *both PASSED* → it isn't strictly IP-bound, so it is replayable to any host
+  within its TTL — the classic "solve once, reuse on cheap HTTP clients" scrape.
+- *both CHALLENGED* → it's also bound to attributes ``curl`` can't reproduce
+  (User-Agent / TLS fingerprint), so even same-host replay is rejected.
+
+F5 prefers IP/fingerprint binding because a freely replayable token lets an
+attacker solve the challenge once (with a real/headless browser) and distribute
+the cookie to a whole botnet of cheap scripted clients — defeating the point of
+the challenge. Binding, plus Device ID+ and (in Distributed Cloud Bot Defense)
+non-reusable telemetry, keeps the "proof of solving" tied to the client that
+actually solved it.
+
 Lab 4 — Stress-based
 ~~~~~~~~~~~~~~~~~~~~~
 
