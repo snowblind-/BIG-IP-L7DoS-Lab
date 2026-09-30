@@ -45,41 +45,57 @@ Task 2: Create the TPS-Based DoS Profile
 
 #. Set the **Name** to ``lab-dos-tps``.
 
-#. Under the **Application** section, expand **TPS-based Detection**.
+#. Under **Application Security**, open **TPS-based Detection** and set
+   **Operation Mode** to **Blocking** and **Thresholds Mode** to **Manual**.
 
-#. Enable **By Source IP** and configure:
-
-   .. list-table::
-      :header-rows: 1
-      :widths: 50 50
-
-      * - Setting
-        - Value
-      * - Detection Mode
-        - Blocking
-      * - TPS Increased By
-        - 500%
-      * - TPS Reached
-        - 100
-      * - Blocking Duration
-        - 60 seconds
-
-#. Enable **By URL** and configure:
+#. Under **How to detect attackers and which mitigation to use**, expand
+   **By Source IP**. An IP is treated as an attacker if *either* condition is met:
 
    .. list-table::
       :header-rows: 1
-      :widths: 50 50
+      :widths: 45 55
+
+      * - Condition
+        - Value
+      * - Relative Threshold — TPS increased by
+        - 500% **and** reached at least 40 TPS
+      * - Absolute Threshold — TPS reached
+        - 200 TPS
+
+   Under **Select mitigation methods to use on the attacking IP's**, tick
+   **Request Blocking → Block All** (start with blocking so the effect is
+   obvious; Client-Side Integrity Defense and CAPTCHA are gentler steps you can
+   add later).
+
+#. *(Optional)* expand **By URL** and **Site Wide** to set per-URL and
+   whole-site criteria — the **By Source IP** tier is enough for this lab.
+
+#. Set the **Prevention Duration** — this controls how mitigation *ramps up* and
+   *winds down*:
+
+   .. list-table::
+      :header-rows: 1
+      :widths: 45 55
 
       * - Setting
         - Value
-      * - TPS Increased By
-        - 200%
-      * - TPS Reached
-        - 1000
-      * - Blocking Duration
+      * - Escalation Period
+        - 30 seconds
+      * - De-escalation Period
         - 60 seconds
 
-#. Leave **Behavioral Detection** disabled for this lab.
+   - **Escalation Period** — how long the system stays at each mitigation step
+     before moving to the next, more aggressive one. Mitigation is applied in
+     steps; if the attack persists past this period, BIG-IP escalates (e.g. from
+     a gentler challenge toward outright blocking).
+   - **De-escalation Period** — how long the source/URL must stay *below* the
+     thresholds before mitigation is relaxed and finally removed. A longer value
+     prevents **flapping** (mitigation toggling on/off) when traffic hovers near
+     the threshold; too short and a still-active attack resumes the moment
+     mitigation lifts (see the stress-based de-escalation question in Lab 4).
+
+#. Leave **Behavioral & Stress-based Detection** disabled for this lab (that is
+   Lab 2).
 
 #. Click **Finished**.
 
