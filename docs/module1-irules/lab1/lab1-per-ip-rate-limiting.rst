@@ -91,10 +91,23 @@ Task 3: Trigger the Rate Limit
 #. Observe the response codes in the ``ab`` summary. You should see a mix of
    **200** (within threshold) and **429** (threshold exceeded) responses.
 
-#. Confirm BIG-IP is responding directly by checking that the pool member
-   access log shows fewer requests than ``ab`` sent::
+#. Confirm the BIG-IP absorbed the rejects — the pool member sees far fewer
+   requests than ``ab`` sent, because the **429** responses never leave the TMM
+   fast path:
 
-      ssh root@10.1.1.5 tail -20 /var/log/nginx/access.log
+   - **(kali)** the ``ab`` summary already shows the split — 200 (passed) vs 429
+     (rejected by BIG-IP).
+   - **(BIG-IP)** ``tmsh show ltm virtual vs-lab-irules`` — compare the
+     client-side vs server-side (pool) counts; the difference is the rejected
+     traffic. (Or TMUI: Statistics > Module Statistics > Local Traffic > Virtual
+     Servers.)
+
+   The Hackazon backend runs in a **Docker container** on ``10.1.1.5``, so there
+   is no ``/var/log/nginx/access.log`` on the host. To watch backend requests
+   directly, open the Hackazon **Web Shell** and use ``docker ps`` then
+   ``docker logs -f <hackazon-container>`` (or ``docker exec -it
+   <hackazon-container> tail -f /var/log/nginx/access.log`` if the image runs
+   nginx internally).
 
 .. important::
 
