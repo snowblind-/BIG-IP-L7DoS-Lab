@@ -12,7 +12,7 @@
 ##
 ## Detection: a legitimate first-party client (the app's SPA / mobile app /
 ## API caller) always sends REQ_HDR_1 and REQ_HDR_2. Commodity attack tools
-## (curl, wrk, generic bots) do not. Missing either header == suspicious.
+## (curl, ab, generic bots) do not. Missing either header == suspicious.
 ##
 ## Mitigation: suspicious sources are capped at SUSPECT_TPS requests per WINDOW
 ## seconds (per client IP); requests over the cap receive HTTP 429.

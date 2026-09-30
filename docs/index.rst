@@ -59,7 +59,7 @@ Prerequisites
 - ASM / Advanced WAF provisioned (required for Module 3 only)
 - TMUI access: ``https://10.1.1.11``
 - Web Shell access to the lab instances (UDF UI) — see below
-- ``curl``, ``ab`` (apache2-utils), or ``wrk`` on the attack client
+- ``curl`` and ``ab`` (apache2-utils) on the attack client
 
 Accessing the lab environment
 -----------------------------

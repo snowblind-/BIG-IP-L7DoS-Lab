@@ -8,7 +8,7 @@ rate-limiting the offenders to a low TPS.
 The signature logic is deliberately simple and effective: a legitimate
 first-party client (the app's single-page front end, mobile app, or API caller)
 always sends two application-specific headers. Commodity attack tooling — ``curl``,
-``wrk``, ``ab``, generic bots — does not. **If either required header is
+``curl``, ``ab``, generic bots — does not. **If either required header is
 missing, the request is throttled to a low request rate; if both are present, it
 passes untouched.**
 

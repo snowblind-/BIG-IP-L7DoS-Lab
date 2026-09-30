@@ -27,15 +27,11 @@ fi
 echo ""
 echo "Starting flood..."
 
-if command -v wrk &>/dev/null; then
-    wrk -t"$CONCURRENCY" -c"$CONCURRENCY" -d"${DURATION}s" \
-        -H "User-Agent: lab-flood-test/1.0" \
-        "$TARGET"
-elif command -v ab &>/dev/null; then
+if command -v ab &>/dev/null; then
     total=$(( CONCURRENCY * DURATION * 10 ))
-    ab -n "$total" -c "$CONCURRENCY" -t "$DURATION" "${TARGET}/"
+    ab -n "$total" -c "$CONCURRENCY" -t "$DURATION" -l "${TARGET}/"
 else
-    echo "Install 'wrk' or 'ab' (apache2-utils) for flood testing."
+    echo "Install 'ab' (apache2-utils) for flood testing."
     exit 1
 fi
 

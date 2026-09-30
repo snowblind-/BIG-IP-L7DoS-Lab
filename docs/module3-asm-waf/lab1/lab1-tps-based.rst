@@ -113,13 +113,11 @@ Task 3: Attach the Profile to the Security Policy
 Task 4: Generate Attack Traffic and Observe Blocking
 -----------------------------------------------------
 
-#. From the attack client, run a sustained high-rate flood::
+#. From the attack client, run a sustained high-rate flood (the backend at full
+   CPU — ``docker update --cpus=0`` — lets ``ab`` reach a rate that trips the
+   thresholds)::
 
-      wrk -t4 -c100 -d60s http://10.1.10.63/
-
-   If ``wrk`` is not available::
-
-      ab -n 10000 -c 100 -t 60 http://10.1.10.63/
+      ab -n 50000 -c 100 -t 60 -l http://10.1.10.63/
 
 #. While the flood runs, open the BIG-IP TMUI and navigate to
    **Security > Event Logs > DoS > Application Events**.
