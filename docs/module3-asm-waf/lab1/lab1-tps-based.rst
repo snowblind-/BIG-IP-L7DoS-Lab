@@ -238,24 +238,50 @@ aggregate rollup of the same attacks — the view you use to brief on an inciden
    log, so you can pivot from the dashboard's aggregate view to the per-event
    detail and back.
 
-Task 6: Review Block Page Behavior
-------------------------------------
+Task 6: Validate Per-Source Mitigation (attacker blocked, others served)
+------------------------------------------------------------------------
 
-#. While the flood is running (or immediately after), send a manual request
-   from the attack client::
+**Block All** mitigation is scoped to the **offending source IP** — the attacker
+is cut off while legitimate clients from other IPs keep getting the application.
+Show both sides during one sustained attack.
 
-      curl -v http://10.1.10.63/
+#. **(kali — attacker)** Keep a sustained flood running (long enough to test the
+   other source while mitigation is active)::
 
-   The response should be the ASM block page with HTTP **200** (or a
-   configured redirect) rather than the application content.
+      ab -n 500000 -c 100 -t 300 -l http://10.1.10.63/
+
+#. **(kali — attacker)** From a second kali shell, send a manual request from the
+   same (blocked) source IP::
+
+      curl -v --max-time 10 http://10.1.10.63/
+
+   Expected: the connection **hangs and times out** (recv timeout). **Block All
+   drops/resets the attacker's connections — it does not return a block page**, so
+   there is nothing to render. (Reducing the attack rate won't change this; a
+   served page only appears with a *challenge* mitigation — Client-Side Integrity
+   or CAPTCHA — which expect a JS-capable browser, not ``curl``.)
+
+#. **(superjump — legitimate client)** While the attack is **still running**, open
+   **Firefox** on superjump (UDF **ACCESS > FIREFOX**) and browse to
+   ``http://10.1.10.63/``.
+
+   Expected: the full **Hackazon** page loads normally. This client is a different
+   source IP, so the per-source mitigation never touches it — the virtual server
+   stays available to everyone except the attacker. *This is the core result of
+   the lab.*
+
+#. **(TMUI)** Cross-reference while both are in flight: in **Security > Event Logs
+   > DoS > Application Events**, open the attack's **Suspicious entity** row — it
+   shows **Entity: 10.1.10.100** (the blocked attacker). Pair that with the working
+   Firefox session to see "this IP blocked / this client fine" side by side.
 
 .. note::
 
-   TPS-based blocking applies to the **source IP** for the configured
-   blocking duration. Legitimate users from the same IP (e.g., behind a
-   shared NAT) will also be blocked during this window. For more granular
-   mitigation, consider Behavioral DoS (Lab 2) which targets individual
-   bad actors rather than entire IPs.
+   TPS-based Block All applies to the **source IP** for the mitigation duration, so
+   legitimate users *sharing that IP* (e.g. behind the same NAT) are blocked too,
+   while clients from other IPs are unaffected — exactly what you just
+   demonstrated. For per-user rather than per-IP mitigation, see Behavioral DoS
+   (Lab 2), which targets individual bad actors rather than whole IPs.
 
 Questions
 ~~~~~~~~~
