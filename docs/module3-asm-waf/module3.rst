@@ -57,6 +57,18 @@ set **Log Profile** to *Enabled*, move **L7-DOS_BOT_Logger** into *Selected*,
 If an Event Log stays empty during a lab, a missing log profile on the VS is the
 usual cause.
 
+Before you begin: the DoS dashboard
+-----------------------------------
+
+Several labs validate on the live DoS dashboard. Open it at **Security > Reporting
+> DoS > Dashboard** — also reachable via **Security > Overview > DoS** (both open
+the same view) — and toggle **Real Time: ON**.
+
+**Real Time** switches the dashboard to a ~10-second live refresh so you watch an
+attack as it happens. The default historical view lags while the reporting rollup
+catches up, so turn Real Time **on before** you launch an attack to avoid waiting
+for the data to appear.
+
 .. toctree::
    :maxdepth: 1
    :caption: Labs
