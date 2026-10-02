@@ -4,8 +4,8 @@ Lab 2: Behavioral DoS (BADoS)
 Behavioral DoS (BADoS) uses machine learning to model **normal** traffic, then
 detects and mitigates anomalies automatically — no explicit thresholds. This lab
 drives the blueprint's ready-made BaDOS demo from kali and validates it in
-**Grafana** (or the native TMUI **Reporting > DoS > Dashboard**), then inspects the dynamic
-signatures BADoS generates.
+the native **Security > Overview > DoS → Behavioral DoS** dashboard, then inspects
+the dynamic signatures BADoS generates.
 
 .. list-table:: Lab environment
    :header-rows: 1
@@ -20,8 +20,10 @@ signatures BADoS generates.
        the attack binds ``10.1.10.200`` (bad). The demo's ``XFF_mixed_Attacker_Good``
        iRule on ``10.1.10.61`` maps ``.100`` → good and ``.200`` → attacker
    * - Validation dashboard
-     - win-client — Guacamole RDP → Chrome
-     - **Grafana** (``admin``/``admin``) → *Health and Mitigations*
+     - TMUI — **Security > Overview > DoS**
+     - Native **BIG-IP Dashboard → Behavioral DoS** (Protected Applications
+       status, Server Stress, RPS threshold/baseline, Detected Attacks) — no
+       Grafana needed
    * - Protected VS
      - ``vs_Hackazon_I`` — ``10.1.10.61``
      - Blueprint's BaDoS demo VS: ``Hackazon_BaDOS`` profile, ``XFF-http``,
@@ -31,8 +33,8 @@ signatures BADoS generates.
 .. note::
 
    **Run-from key.** **(kali)** = kali attack client via its UDF Web Shell;
-   **(win-client)** = Windows client via superjump Guacamole RDP (Chrome →
-   Grafana); **(TMUI)** = BIG-IP GUI.
+   **(TMUI)** = BIG-IP GUI — the **Security > Overview > DoS → Behavioral DoS**
+   dashboard.
 
 .. note::
 
@@ -40,9 +42,8 @@ signatures BADoS generates.
    split, XFF handling, and logging are already configured on ``vs_Hackazon_I`` —
    there is nothing to build first — it is **entirely kali-driven**: the good
    baseline and the attack both originate from kali, distinguished only by source
-   IP (``.100`` good vs ``.200`` attacker). Win-client is used only to view
-   Grafana. (For a build-it-yourself variant on ``vs-lab-dos``, see *Alternative*
-   at the end.)
+   IP (``.100`` good vs ``.200`` attacker). You validate from the BIG-IP GUI. (For a
+   build-it-yourself variant on ``vs-lab-dos``, see *Alternative* at the end.)
 
 Task 1: Generate baseline traffic
 ---------------------------------
@@ -82,16 +83,15 @@ BADoS needs a learning period on normal traffic before it can spot anomalies.
 Task 2: Confirm learning
 ------------------------
 
-Validate with **Grafana** (the environment's dashboard) *or* the native **TMUI**
-Reporting > DoS > Dashboard (Real Time) — either works. Wait for learning to complete before attacking.
+#. **(TMUI)** Open **Security > Overview > DoS** and set the **Dashboard** selector
+   to **Behavioral DoS**. In **Protected Applications**, select
+   ``/Common/vs_Hackazon_I`` (profile ``Hackazon_BaDOS``) — its **Status** should
+   read **Calm**.
 
-- **(win-client) Grafana:** RDP to the Windows client (superjump Guacamole),
-  launch **Chrome**, open the **Grafana** bookmark (``admin`` / ``admin``), and go
-  to **Home > Health and Mitigations**. Wait for **HTTP Threshold Learning** to
-  turn **GREEN**.
-- **(TMUI) BIG-IP GUI — no Grafana needed:** **Security > DoS Protection > DoS
-  Overview**. Wait for **Behavioral Analysis Status** to move **Learning →
-  Ready**.
+#. Watch **Client HTTP Transactions**: the **Baseline** line settles in and tracks
+   **Incoming Requests** as BADoS learns normal traffic. Let the baseline establish
+   before attacking — behavioral detection needs a learning period and won't flag
+   an anomaly it has no baseline for.
 
 Task 3: Launch the attack
 -------------------------
@@ -117,30 +117,24 @@ Task 3: Launch the attack
 Task 4: Validate mitigation
 ---------------------------
 
-Validate in **Grafana** *or* the native **TMUI** — either shows detection,
-mitigation, and the offending sources.
+On the **Security > Overview > DoS → Behavioral DoS** dashboard
+(``/Common/vs_Hackazon_I``):
 
-**(win-client) Grafana:**
+#. **Protected Applications → Status** flips from **Calm** to **Under Attack**, and
+   the **Detected Attacks** table gets a row (Attack Id / Start Time / Duration).
 
-#. **Home > Health and Mitigations** shows **UNDER ATTACK** and the **Health**
-   score degrade (**> 0.45**).
+#. **Client HTTP Requests & Transactions** shows **Incoming Requests** spike above
+   the **RPS Threshold** while **Server Stress** rises — BADoS has detected the
+   anomaly.
 
-#. After a few minutes **Health returns to good (< 0.45)** — BADoS has generated
-   dynamic signatures and is mitigating while the attack is still in progress.
+#. Within a minute or two, **Server Stress** falls back and **Successful
+   Transactions** stay healthy **even though the attack is still running** — BADoS
+   generated dynamic signatures and is mitigating the bad traffic while legitimate
+   baseline requests keep flowing. The gap between **Incoming Requests** and
+   **Successful / Passthrough** is the dropped attack traffic.
 
-#. The **Home > Bad Actors** graph shows the offenders blacklisted, while
-   legitimate baseline traffic keeps flowing.
-
-**(TMUI) BIG-IP GUI — no Grafana needed:**
-
-#. **Security > Reporting > DoS > Dashboard** (Real Time: ON): the attack appears and
-   **Mitigation: Active** within ~20–30 s of the flood. The **Bad Actors** table
-   populates with the attacker's XFF cluster (the narrow range the demo's
-   ``XFF_mixed_Attacker_Good`` iRule assigns to source ``10.1.10.200``), while the
-   legitimate baseline sources are not listed.
-
-#. **Security > Event Logs > DoS > Application Events** — per-attack detail
-   (anomaly %, mitigated actors, action). These populate because
+#. **(TMUI)** **Security > Event Logs > DoS > Application Events** — per-attack
+   detail (anomaly %, mitigated actors, action), populated because
    ``vs_Hackazon_I`` carries the ``L7-DOS_BOT_Logger`` log profile.
 
 Task 5: Inspect the dynamic signatures
@@ -183,9 +177,9 @@ prebuilt demo does).
 Questions
 ~~~~~~~~~
 
-- Grafana shows Health recover to **< 0.45** *while the attack is still running*.
-  What did BADoS do between "under attack" and "healthy again", and why is that
-  different from a static rate limit?
+- The dashboard shows **Server Stress** recover *while the attack is still
+  running*. What did BADoS do between "under attack" and "healthy again", and why
+  is that different from a static rate limit?
 - The attacker is blacklisted via **dynamic signatures**. How is that different
   from the **bad-actor greylist**, and when would each be the mitigation you see?
 - A promoted dynamic signature (Task 5) becomes persistent. What do you gain by

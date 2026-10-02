@@ -18,7 +18,7 @@ Each protection method runs on its own virtual server, all fronting the same Hac
 flowchart LR
     subgraph cl["Client subnet · 10.1.10.0/24"]
         kali["kali — attack client<br/>10.1.10.100 · .200 = BaDOS attacker"]:::attacker
-        win["win-client 10.1.10.4<br/>Grafana / browser viewer"]:::client
+        win["win-client 10.1.10.4<br/>Windows client"]:::client
     end
 
     subgraph bigip["BIG-IP VE 17.1.0.1 · mgmt 10.1.1.11"]
@@ -38,7 +38,7 @@ flowchart LR
     kali --> v1 & v2 & v3 & v4 & v5
     v1 & v2 & v3 & v4 & v5 --> pool
     pool --> hack
-    win -. "Grafana / TMUI" .-> bigip
+    win -. "TMUI / RDP" .-> bigip
 
     classDef attacker fill:#ffe0e0,stroke:#c0392b,color:#111
     classDef client fill:#fff3d6,stroke:#b8860b,color:#111

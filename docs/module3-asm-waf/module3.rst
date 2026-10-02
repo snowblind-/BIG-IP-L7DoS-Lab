@@ -57,17 +57,26 @@ set **Log Profile** to *Enabled*, move **L7-DOS_BOT_Logger** into *Selected*,
 If an Event Log stays empty during a lab, a missing log profile on the VS is the
 usual cause.
 
-Before you begin: the DoS dashboard
------------------------------------
+Before you begin: the DoS dashboards
+------------------------------------
 
-Several labs validate on the live DoS dashboard. Open it at **Security > Reporting
-> DoS > Dashboard** — also reachable via **Security > Overview > DoS** (both open
-the same view) — and toggle **Real Time: ON**.
+Module 3 uses two native DoS dashboards — **no Grafana required**:
 
-**Real Time** switches the dashboard to a ~10-second live refresh so you watch an
-attack as it happens. The default historical view lags while the reporting rollup
-catches up, so turn Real Time **on before** you launch an attack to avoid waiting
-for the data to appear.
+- **Security > Overview > DoS** → the **BIG-IP Dashboard** (set the selector to
+  **Behavioral DoS**). A live, per-second view of a protected application: RPS
+  Threshold vs Baseline, **Server Stress**, Concurrent Connections, the
+  **Protected Applications** status (**Calm / Under Attack**), and a **Detected
+  Attacks** list. Best for watching Behavioral DoS and stress in real time
+  (Labs 2 and 4).
+- **Security > Reporting > DoS > Dashboard** → the reporting rollup: the
+  **Attacks** table (Attack ID, severity, vector, trigger, mitigation),
+  **Virtual Servers Health**, **System Health**, and **DoS Attack IDs** vs
+  **Not attacked**. Toggle **Real Time: ON** for a ~10 s live refresh (otherwise
+  the historical view lags while the rollup catches up). Best for TPS attack
+  events and per-episode/aggregate reporting (Lab 1).
+
+The per-event log is separate: **Security > Event Logs > DoS > Application
+Events**.
 
 .. toctree::
    :maxdepth: 1

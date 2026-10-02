@@ -14,7 +14,7 @@ Topology
 
    [Clients]                            [BIG-IP VE 17.1.0.1 · mgmt 10.1.1.11]
     kali       10.1.10.100  (.200 = BaDOS attacker)
-    win-client 10.1.10.4    (Grafana / browser viewer)
+    win-client 10.1.10.4    (Windows client)
         |
         | HTTP        vs-lab-irules 10.1.10.55  Module 1 · iRules       -+
         +----------▶  vs-lab-ltm    10.1.10.56  Module 2 · LTM policies -+
