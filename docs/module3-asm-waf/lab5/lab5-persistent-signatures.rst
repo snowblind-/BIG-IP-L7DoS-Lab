@@ -39,7 +39,7 @@ header-absence iRule.
      - Generates the flood
    * - Virtual server
      - ``vs-lab-dos`` — ``10.1.10.63``
-     - Runs ``lab_dos_bados_profile`` (behavioral detection)
+     - Runs the shared ``lab-dos-tps`` profile with Request Signatures enabled
    * - CLI supplement
      - ``configs/profiles/dos-persistent-signature.conf``
      - Merge-loadable equivalent + promote/approve commands
@@ -47,9 +47,11 @@ header-absence iRule.
 .. note::
 
    Persistent signatures are only evaluated when the DoS profile on the VS has
-   application-layer request-signature detection enabled. This lab reuses the
-   BADoS profile from Lab 2 on ``vs-lab-dos``. If you enable **Use Approved
-   Signatures Only** on that profile, *only* signatures whose Approval State is
+   application-layer **request-signature detection** enabled. This lab reuses the
+   shared ``lab-dos-tps`` profile on ``vs-lab-dos``: open it, go to **Behavioral &
+   Stress-based (D)DoS Detection → By Bad Actors Behavior / Signatures**, and
+   confirm **Request signatures detection** is ticked. If you also tick **Use
+   approved signatures only**, *only* signatures whose Approval State is
    ``Manually-approved`` will mitigate — dynamic or persistent alike.
 
 HTTP-family rules to know
@@ -123,9 +125,9 @@ Task 2: Approve and activate
    **Approved** (Approval State → ``Manually-approved``). Tick **Shareable** if
    other VSs should use it.
 
-#. (Optional, stricter) On ``lab_dos_bados_profile`` enable **Use Approved
-   Signatures Only**, so nothing mitigates until you've approved it — the safe
-   way to roll signatures out in production.
+#. (Optional, stricter) On the shared ``lab-dos-tps`` profile tick **Use approved
+   signatures only**, so nothing mitigates until you've approved it — the safe way
+   to roll signatures out in production.
 
 Task 3: Test the custom signature
 ---------------------------------

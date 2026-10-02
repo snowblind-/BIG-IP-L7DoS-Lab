@@ -161,7 +161,7 @@ Task 4: Generate Attack Traffic and Observe Blocking
       ab -n 50000 -c 100 -t 60 -l http://10.1.10.63/
 
 #. While the flood runs, open **Security > Event Logs > DoS > Application Events**
-   (and **Security > DoS Protection > DoS Overview** for the live view). Once the
+   (and **Security > Reporting > DoS > Dashboard** with **Real Time: ON** for the live view). Once the
    source-IP rate crosses the threshold, the attack lifecycle appears — three
    event types tied together by one **Attack ID**:
 
@@ -262,18 +262,19 @@ Show both sides during one sustained attack.
    or CAPTCHA — which expect a JS-capable browser, not ``curl``.)
 
 #. **(superjump — legitimate client)** While the attack is **still running**, open
-   **Firefox** on superjump (UDF **ACCESS > FIREFOX**) and browse to
-   ``http://10.1.10.63/``.
+   the in-browser **Firefox** on superjump (UDF **ACCESS > FIREFOX**) — a clientless
+   browser session that reaches the VIP from a **different source than the
+   attacker** — and browse to ``http://10.1.10.63/``.
 
-   Expected: the full **Hackazon** page loads normally. This client is a different
-   source IP, so the per-source mitigation never touches it — the virtual server
+   Expected: the full **Hackazon** page loads normally. Because its source is not
+   the blocked IP, the per-source mitigation never touches it — the virtual server
    stays available to everyone except the attacker. *This is the core result of
    the lab.*
 
 #. **(TMUI)** Cross-reference while both are in flight: in **Security > Event Logs
    > DoS > Application Events**, open the attack's **Suspicious entity** row — it
-   shows **Entity: 10.1.10.100** (the blocked attacker). Pair that with the working
-   Firefox session to see "this IP blocked / this client fine" side by side.
+   shows **Entity: 10.1.10.100** and that is the **only** entity listed — the
+   attacker's IP is blocked while the Firefox client (a different source) is not.
 
 .. note::
 

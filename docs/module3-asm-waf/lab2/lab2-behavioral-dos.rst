@@ -4,7 +4,7 @@ Lab 2: Behavioral DoS (BADoS)
 Behavioral DoS (BADoS) uses machine learning to model **normal** traffic, then
 detects and mitigates anomalies automatically — no explicit thresholds. This lab
 drives the blueprint's ready-made BaDOS demo from kali and validates it in
-**Grafana** (or the native TMUI **DoS Overview**), then inspects the dynamic
+**Grafana** (or the native TMUI **Reporting > DoS > Dashboard**), then inspects the dynamic
 signatures BADoS generates.
 
 .. list-table:: Lab environment
@@ -57,30 +57,33 @@ BADoS needs a learning period on normal traffic before it can spot anomalies.
 
       cd /home/ec2-user/     # prompt becomes root@kali:/home/ec2-user#
 
-#. **(kali)** Start the **increasing** baseline pattern inside a detachable
-   ``screen`` so it keeps running::
+#. **(kali — Web Shell #1)** Start the **increasing** baseline pattern and leave
+   it running in this shell::
 
-      screen        # press ENTER at the banner
       ./baseline_menu.sh
       # choose 1  (increasing)
 
-   Detach with **Ctrl+a** then **d** (the stream keeps running in the background).
+#. **(kali — Web Shell #2)** Open a **second** kali Web Shell (``cd
+   /home/ec2-user/`` again) and start the **alternate** baseline::
 
-#. **(kali)** Start the **alternate** baseline pattern the same way::
-
-      screen
       ./baseline_menu.sh
       # choose 2  (alternate)
 
-   Detach again with **Ctrl+a** then **d**. (``screen -ls`` lists both sessions.)
-   Both patterns source from ``10.1.10.100`` with randomised user-agents and
-   URLs, so BADoS learns a model built from many apparent legitimate clients.
+   .. note::
+
+      The UDF Web Shell doesn't pass ``screen``'s detach keystroke (Ctrl+a d), so
+      instead of backgrounding with ``screen``, open a **separate Web Shell per
+      long-running stream** — UDF allows several shells to the same host — and leave
+      each running. Stop one with **Ctrl+c** in its own shell.
+
+   Both patterns source from ``10.1.10.100`` with randomised user-agents and URLs,
+   so BADoS learns a model built from many apparent legitimate clients.
 
 Task 2: Confirm learning
 ------------------------
 
 Validate with **Grafana** (the environment's dashboard) *or* the native **TMUI**
-DoS Overview — either works. Wait for learning to complete before attacking.
+Reporting > DoS > Dashboard (Real Time) — either works. Wait for learning to complete before attacking.
 
 - **(win-client) Grafana:** RDP to the Windows client (superjump Guacamole),
   launch **Chrome**, open the **Grafana** bookmark (``admin`` / ``admin``), and go
@@ -130,7 +133,7 @@ mitigation, and the offending sources.
 
 **(TMUI) BIG-IP GUI — no Grafana needed:**
 
-#. **Security > DoS Protection > DoS Overview**: **Attack Status: Detected** and
+#. **Security > Reporting > DoS > Dashboard** (Real Time: ON): the attack appears and
    **Mitigation: Active** within ~20–30 s of the flood. The **Bad Actors** table
    populates with the attacker's XFF cluster (the narrow range the demo's
    ``XFF_mixed_Attacker_Good`` iRule assigns to source ``10.1.10.200``), while the
@@ -158,17 +161,17 @@ Teardown
    the ``AB_DOS.sh`` menu choose **3** (*Attack end*) to ``killall ab``, then
    **4** (*Quit*).
 
-#. **(kali)** Stop the baseline ``screen`` sessions::
+#. **(kali)** Stop the baseline streams — press **Ctrl+c** in each of the Web
+   Shells running ``baseline_menu.sh`` (or, from any shell)::
 
-      screen -ls                    # list the detached baseline sessions
-      # reattach each (screen -r <id>), Ctrl+c to stop, then exit — or:
       pkill -f baseline_menu.sh
 
 Alternative: build-it-yourself on ``vs-lab-dos``
 ------------------------------------------------
 
 To construct an equivalent demo from scratch on the lab VIP instead of the
-prebuilt one, use ``vs-lab-dos`` with ``lab_dos_bados_profile``, swap it to the
+prebuilt one, use ``vs-lab-dos`` with the shared ``lab-dos-tps`` profile (enable
+**Behavioral & Stress-based Detection** on it), swap it to the
 ``XFF-http`` profile, and attach ``configs/irules/xff-traffic-shaping.tcl`` — then
 generate a good baseline and an attack from sources the iRule classifies
 differently, and validate in the TMUI (**Security > DoS Protection > DoS

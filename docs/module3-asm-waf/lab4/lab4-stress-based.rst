@@ -31,34 +31,51 @@ legitimate heavy users.
      - Limited
      - Yes
 
-Task 1: Configure Stress-Based Detection
------------------------------------------
+Task 1: Switch the Shared Profile to Stress-Based Detection
+-----------------------------------------------------------
+
+This lab reuses the **shared ``lab-dos-tps`` profile** from Lab 1 — already
+attached to ``vs-lab-dos`` with the ``L7-DOS_BOT_Logger`` log profile. You change
+which detection mode is active: quiet Lab 1's per-IP TPS rule, and turn on
+stress-based detection.
 
 #. Navigate to **Security > DoS Protection > Protection Profiles**, open
-   ``lab-dos-bados``, and expand **Behavioral & Stress-based Detection**.
+   ``lab-dos-tps``, and select **Application Security**.
 
-#. Enable **Stress-based Detection** and configure:
+#. In **TPS-based Detection**, **disable By Source IP** so Lab 1's per-IP rate
+   rule stays quiet during this lab. **(CLI)**::
 
-   .. list-table::
-      :header-rows: 1
-      :widths: 50 50
+      tmsh modify security dos profile lab-dos-tps application modify { lab-dos-tps { \
+          tps-based { ip-rate-limiting disabled } } }
 
-      * - Setting
-        - Value
-      * - Latency Increase Threshold
-        - 200%
-      * - TPS Increase Threshold
-        - 500%
-      * - Minimum TPS for Detection
-        - 10
+#. Open **Behavioral & Stress-based (D)DoS Detection** and set **Operation Mode**
+   = **Blocking** and **Thresholds Mode** = **Automatic**. Stress-based uses
+   *auto-calculated* thresholds — the system learns normal server stress, so there
+   is no manual latency %% to enter.
+
+#. Under **Stress-based Detection and Mitigation → By Source IP**, tick a
+   mitigation to apply when a source drives server stress — **Request Blocking**
+   (optionally **Client Side Integrity Defense** / **CAPTCHA Challenge**).
+
+#. *(Behavioral engine)* Under **Behavioral Detection and Mitigation → By Bad
+   Actors Behavior / Signatures**, **Bad actors behavior detection** and **Request
+   signatures detection** are the ML layer; the **Mitigation** dropdown
+   (Transparent → Conservative → Standard → Aggressive protection) sets how hard it
+   acts. Leave the default for this lab.
+
+#. **Prevention Duration** controls ramp-up/down: **Escalation Period** (time at
+   each mitigation step) and **De-escalation Period** (how long stress must stay
+   normal before relaxing) — defaults here are 120 s / 7200 s.
 
    .. note::
 
-      **Latency Increase Threshold: 200%** means stress-based detection
-      triggers when server response time rises to 3× the learned baseline
-      (baseline + 200% of baseline).
+      Automatic (stress) thresholds need a **learning period** of normal traffic
+      before they are effective — run the baseline (Task 2) first. Capture the live
+      settings to confirm the exact keywords for your build::
 
-#. Click **Finished** and apply the policy.
+         tmsh list security dos profile lab-dos-tps application | grep -A25 stress-based
+
+#. Click **Update**.
 
 Task 2: Establish a Latency Baseline
 --------------------------------------
@@ -70,8 +87,9 @@ Task 2: Establish a Latency Baseline
 
    Allow this to run for at least 5 minutes.
 
-#. In the TMUI, navigate to **Security > DoS Protection > DoS Overview** and
-   confirm the baseline latency is being tracked.
+#. In the TMUI, navigate to **Security > Reporting > DoS > Dashboard** (set
+   **Real Time: ON**) and confirm server latency is being tracked under **Virtual
+   Servers Health** / **System Health**.
 
 Task 3: Simulate a Slow Server Under Attack
 --------------------------------------------
@@ -102,31 +120,40 @@ Task 3: Simulate a Slow Server Under Attack
 
       bash /home/ec2-user/lab/scripts/attack/http-flood.sh http://10.1.10.63 60 80
 
-#. Observe in **Security > DoS Protection > DoS Overview**:
+#. Observe in **Security > Reporting > DoS > Dashboard** (Real Time: ON):
 
-   - **Server Latency** graph rises above the baseline
-   - **Stress-based Detection: Active** appears
-   - The **Bad Actors** table shows which source IPs are contributing the
-     most to latency and are being throttled
+   - **Virtual Servers Health** for ``vs-lab-dos`` degrades as **Server Latency**
+     climbs above baseline
+   - an attack appears in the **Attacks** table (Vector: Application, a stress
+     trigger)
+   - the attacking sources show in the right-rail **Transaction Origins /
+     Client IP Addresses** and are being throttled
 
-Task 4: Verify Proportional Throttling
-----------------------------------------
+Task 4: Verify Proportional Throttling (attacker throttled, others served)
+--------------------------------------------------------------------------
 
-#. From a second terminal (using a different source IP or a low-rate
-   client), send requests during the attack::
+#. **(superjump — legitimate client)** While the attack is still running, open the
+   in-browser **Firefox** on superjump (UDF **ACCESS > FIREFOX**, a different
+   source than the attacker) and browse to ``http://10.1.10.63/`` — the full
+   **Hackazon** page still loads. Stress-based mitigation throttles the sources
+   *causing* the latency, not legitimate clients.
+
+#. **(kali, low-rate)** Optionally quantify it — a low-rate client keeps normal
+   latency and **200**s while the flood is throttled::
 
       for i in $(seq 1 10); do
-          curl -so /dev/null -w "Time: %{time_total}s Code: %{http_code}\n" \
-               http://10.1.10.63/
+          curl -so /dev/null -w "Time: %{time_total}s Code: %{http_code}\n" http://10.1.10.63/
           sleep 0.5
       done
 
-   Expected result: the low-rate client continues to receive **200** responses
-   with normal latency. BIG-IP has throttled the high-rate attacker but left
-   the low-rate client unaffected.
+#. **(TMUI)** In **Security > Event Logs > DoS > Application Events**, the episode
+   shows **Detection Mode: DOS L7 attack** on a stress trigger; the **Suspicious
+   entity** rows name the sources contributing most to latency (the attacker).
+   Confirm the Firefox client's source is *not* listed.
 
-#. Compare this to TPS-based behavior from Lab 1 — in TPS mode, any source
-   exceeding the threshold is blocked regardless of server impact.
+#. Compare to Lab 1 (TPS): there, any source over the rate threshold is blocked
+   regardless of server impact; stress-based only mitigates when the server is
+   actually stressed and targets the heaviest contributors.
 
 Task 5: Clean Up
 -----------------
@@ -137,8 +164,14 @@ Task 5: Clean Up
       docker update --cpus=0 <hackazon-container>
       # or, if you used the busy-loop fallback:  docker restart <hackazon-container>
 
-#. Verify server response times return to baseline in the DoS Overview
-   dashboard.
+#. Verify server response times return to baseline in **Security > Reporting >
+   DoS > Dashboard**.
+
+#. Restore the shared profile for later labs — re-enable By Source IP TPS
+   detection if you want Lab 1 behaviour back::
+
+      tmsh modify security dos profile lab-dos-tps application modify { lab-dos-tps { \
+          tps-based { ip-rate-limiting enabled } } }
 
 Questions
 ~~~~~~~~~
