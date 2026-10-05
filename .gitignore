@@ -19,3 +19,6 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# Claude Code context file (kept local, not tracked)
+CLAUDE.md
