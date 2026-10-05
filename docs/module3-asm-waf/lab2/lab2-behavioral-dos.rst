@@ -137,16 +137,83 @@ On the **Security > Overview > DoS → Behavioral DoS** dashboard
    detail (anomaly %, mitigated actors, action), populated because
    ``vs_Hackazon_I`` carries the ``L7-DOS_BOT_Logger`` log profile.
 
-Task 5: Inspect the dynamic signatures
---------------------------------------
+Task 5: Examine the signature BADoS generated
+---------------------------------------------
 
-#. **(TMUI)** Go to **Security > DoS Protection > Signatures** and select the
-   **Dynamic** tab. BADoS auto-generated these from the attack traffic; each
-   expands to show its predicates and recent attacks.
+When behavioral detection mitigates an attack it **auto-generates a dynamic
+signature** describing the attack traffic. Reading it shows *how* BADoS tells the
+attack apart from normal traffic.
 
-#. **(TMUI)** *(optional)* Select an effective signature and **Make Persistent**
-   to keep it beyond this attack — this is the hand-off into
-   :doc:`../lab5/lab5-persistent-signatures` (Custom Persistent DoS Signatures).
+#. **(TMUI)** Go to **Security > DoS Protection > Signatures** (the tab next to
+   **Protection Profiles**). Under the **Dynamic** section is an auto-generated
+   signature named ``HTTPSig…`` tied to your attack — Family **HTTP**, **Context**
+   ``vs_Hackazon_I``, **Profile** ``Hackazon_BaDOS``, and the same **Attack ID**
+   you saw on the dashboard.
+
+#. Read the state columns:
+
+   - **Deployment State: Mitigate** — the signature is actively blocking matching
+     traffic (vs *Detect* / *Learn*).
+   - **Approval State** — dynamic signatures start unapproved; *Manually-approved*
+     means a human vetted it (see Lab 5).
+   - **Threshold EPS** (Detection / Mitigation / Dropped / Current) — the
+     events-per-second counters driving it.
+
+#. Expand the row and read the **Predicates String** — the attack's fingerprint,
+   learned automatically. For the ``AB_DOS.sh`` flood it looks like::
+
+      ( http.x_forwarded_for_header_exists eq true ) and
+      ( http.referer_header_exists eq true ) and
+      ( http.pragma_header_exists eq true ) and
+      ( http.accept_encoding_header_exists eq true ) and
+      ( http.accept contains application ) and
+      ( http.cache_control_header_exists eq true ) and
+      ( http.headers_count eq 11 ) and
+      ( http.unknown_header_exists eq true ) and
+      ( http.hdrorder hashes-to 11 ) and
+      ( http.cache_control hashes-to 14 ) and
+      ( http.referer hashes-like http://10.0.2.1/none.html )
+
+   Each predicate is a trait BADoS found common to the attack but **not** to the
+   learned baseline — the specific header set, the header *count* (11) and *order*
+   hash, and the tell-tale ``Referer: http://10.0.2.1/none.html`` the attack script
+   sends. Together they match the attack precisely while leaving normal traffic
+   alone — which is why legitimate clients kept being served during the attack.
+
+   .. note::
+
+      **Why predicate mitigation beats a rate limit here.** The signature filters
+      on the *request's shape*, not its source — so it mitigates the attack on
+      different terms than the per-IP and TPS limits in Labs 1 and 3:
+
+      - **Source-independent.** It drops anything matching the attack fingerprint
+        regardless of IP, so an attacker rotating thousands of IPs — or hiding
+        behind the same NAT/CDN as real users — is still caught. A per-IP limit
+        only sees source IP, so it misses a distributed/low-and-slow attacker that
+        stays under the threshold.
+      - **No collateral damage.** Because the predicates match traits common to the
+        attack and *absent* from the learned baseline, legitimate users keep being
+        served even from the same IPs — the opposite of per-IP Block All, which
+        also blocks innocent users sharing a NATed address (the shared-NAT problem
+        from Module 1 Lab 1). That's the ``47.8k`` blocked transactions with the
+        server-side graph staying flat.
+      - **Automatic and adaptive.** BADoS derives the predicate set from live
+        traffic in seconds — you don't have to know or hand-tune the right
+        threshold in advance (contrast Lab 1, where you had to find a TPS number
+        that fit the backend).
+
+      The trade-off: predicate mitigation is sharper but needs the attack to have a
+      learnable, distinct shape and a good baseline; a rate limit is blunt but
+      simple, deterministic, and needs no learning. In production you layer them —
+      behavioral/predicate for precision, rate limits as a coarse backstop.
+
+#. Expand **Most Recent Attacks**: **Accuracy 100%** and a non-zero **Current EPS**
+   mean the signature is matching live attack traffic; **Detection / Mitigation
+   Threshold EPS** show the rates at which it acts.
+
+#. *(optional)* With the signature selected, use **Make Persistent** to keep it
+   beyond this attack (hand-off to :doc:`../lab5/lab5-persistent-signatures`),
+   **Set Deployment State**, or **Set Threshold Mode**.
 
 Teardown
 --------
