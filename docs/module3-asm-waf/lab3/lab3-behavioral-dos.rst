@@ -1,4 +1,4 @@
-Lab 2: Behavioral DoS (BADoS)
+Lab 3: Behavioral DoS (BADoS)
 ==============================
 
 Behavioral DoS (BADoS) uses machine learning to model **normal** traffic, then
@@ -155,7 +155,7 @@ attack apart from normal traffic.
    - **Deployment State: Mitigate** — the signature is actively blocking matching
      traffic (vs *Detect* / *Learn*).
    - **Approval State** — dynamic signatures start unapproved; *Manually-approved*
-     means a human vetted it (see Lab 5).
+     means a human vetted it (see Lab 4).
    - **Threshold EPS** (Detection / Mitigation / Dropped / Current) — the
      events-per-second counters driving it.
 
@@ -212,7 +212,7 @@ attack apart from normal traffic.
    Threshold EPS** show the rates at which it acts.
 
 #. *(optional)* With the signature selected, use **Make Persistent** to keep it
-   beyond this attack (hand-off to :doc:`../lab5/lab5-persistent-signatures`),
+   beyond this attack (hand-off to :doc:`../lab4/lab4-persistent-signatures`),
    **Set Deployment State**, or **Set Threshold Mode**.
 
 Teardown

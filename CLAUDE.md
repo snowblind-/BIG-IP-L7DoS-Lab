@@ -38,7 +38,7 @@ Read this before editing — it encodes hard-won, environment-specific facts.
 - `vs-lab-dos` `.63` — Module 3 DoS profile labs
 - `vs-lab-bot` `.74` — Module 3 bot defense
 - `vs_Hackazon_I` `.61` — prebuilt BADoS demo (`Hackazon_BaDOS` profile, XFF-http +
-  `XFF_mixed_Attacker_Good` iRule + `L7-DOS_BOT_Logger`); used by Lab 2.
+  `XFF_mixed_Attacker_Good` iRule + `L7-DOS_BOT_Logger`); used by Lab 3.
 
 ## Module 3 shared-profile model
 One shared DoS profile **`lab-dos-tps`** on `vs-lab-dos`; each lab toggles the
@@ -96,8 +96,8 @@ upgrade).
 
 ## Status / open items
 - Validated live: **Module 1** (all 5 iRule labs) and **Module 3 Lab 1 (TPS)** and
-  **Lab 2 (BADoS)**.
-- **Module 3 Lab 3 (bot defense) needs review** — known problems to fix.
-- Pending: Lab 4 (stress) + Lab 5 (persistent signatures) live validation; Lab 6
+  **Lab 3 (BADoS)**.
+- **Module 3 Lab 5 (bot defense) needs review** — known problems to fix.
+- Pending: Lab 2 (stress) + Lab 4 (persistent signatures) live validation; Lab 6
   (auto-thresholds); Lab 7 (logs & reports — Lab 1 is the anchor example); the
   auto-threshold relearn (UI) step; version-string standardization.

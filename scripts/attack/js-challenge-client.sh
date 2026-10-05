@@ -6,7 +6,7 @@
 # This lab image cannot run a modern browser from kali (Firefox ESR 45 has no
 # --headless; a 2025 Chrome needs a newer glibc/NSS than the image provides), so
 # this script drives HTTP clients only (Part A). Run the real-browser half
-# manually from superjump (Lab 3, Task 7 Part B).
+# manually from superjump (Lab 5, Task 7 Part B).
 #
 # Part A, from kali:
 #   * curl with no JS engine      -> receives the JS CHALLENGE page, never the app
@@ -58,7 +58,7 @@ Mitigation Action for each source:
 
 None of these solve the JS challenge -- a script has no JS engine. Run the
 real-browser half manually from superjump (ACCESS > FIREFOX -> this URL) and watch
-the Browser-verified entry appear (Lab 3, Task 7 Part B).
+the Browser-verified entry appear (Lab 5, Task 7 Part B).
 EOF
 
 # ---------------------------------------------------------------------------

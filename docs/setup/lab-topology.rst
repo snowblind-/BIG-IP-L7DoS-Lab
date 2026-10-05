@@ -46,15 +46,15 @@ Virtual server map
        scenario uses it
    * - ``vs-lab-dos``
      - ``10.1.10.63:80``
-     - Module 3 — DoS profile: TPS (3.1), BADoS (3.2), stress (3.4), and the
-       DoS-profile Proactive Bot Defense (3.3, Task 1)
+     - Module 3 — DoS profile: TPS (3.1), BADoS (3.3), stress (3.2), and the
+       DoS-profile Proactive Bot Defense (3.5, Task 1)
      - ``lab_dos_*`` DoS profile (``tps-dos-profile.json`` /
-       ``bados-profile.json`` / ``bot-defense-profile.json``). Lab 2 temporarily
+       ``bados-profile.json`` / ``bot-defense-profile.json``). Lab 3 temporarily
        swaps this VS to the ``XFF-http`` profile and attaches the
        ``xff-traffic-shaping`` iRule for bad-actor detection (student steps).
    * - ``vs-lab-bot``
      - ``10.1.10.74:80``
-     - Module 3 — standalone Bot Defense profile (3.3, Task 2+): verify
+     - Module 3 — standalone Bot Defense profile (3.5, Task 2+): verify
        before/after, per-bot rate limits
      - ``security bot-defense profile lab-bot-defense``
        (``bot-defense-standalone.conf``)
@@ -108,7 +108,7 @@ responds — and therefore how many requests per second a closed-loop tool like
      docker ps
      docker update --cpus=0 <hackazon-container>     # 0 = no limit (full speed)
 
-- **Stress-based detection** (Module 3 Lab 4) needs the *opposite* — a slow
+- **Stress-based detection** (Module 3 Lab 2) needs the *opposite* — a slow
   backend — so it deliberately throttles (``docker update --cpus=0.1``) and
   restores (``--cpus=0``) afterward.
 - **Concurrent-connection limiting** (Module 1 Lab 3) is unaffected: it counts

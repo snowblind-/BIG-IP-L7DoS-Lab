@@ -50,7 +50,7 @@ fi
 
 # --- Atomic create: 4 VIPs in one cli transaction, all on Hackazon_pool ------
 # An HTTP virtual needs a TCP profile under the HTTP profile, hence { tcp http }.
-# (Lab 2 temporarily swaps vs-lab-dos to the XFF-http profile as a student step.)
+# (Lab 3 temporarily swaps vs-lab-dos to the XFF-http profile as a student step.)
 echo "== Creating VIPs in a single transaction (pool: $POOL_NAME) =="
 tmsh <<TMSH
 create cli transaction

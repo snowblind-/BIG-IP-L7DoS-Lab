@@ -1,4 +1,4 @@
-Lab 4: Stress-Based Detection
+Lab 2: Stress-Based Detection
 ==============================
 
 Stress-based detection uses **server-side health signals** — response latency
@@ -14,7 +14,7 @@ legitimate heavy users.
 
    * - Property
      - TPS-based (Lab 1)
-     - Stress-based (Lab 4)
+     - Stress-based (Lab 2)
    * - Trigger
      - Request rate
      - Server latency / error rate

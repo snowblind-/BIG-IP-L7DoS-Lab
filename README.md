@@ -102,10 +102,10 @@ Participants complete every lab through the **BIG-IP UI (TMUI) or CLI (tmsh)** â
 | Scenario | Lab guide |
 |----------|-----------|
 | 3.1 | [TPS-based DoS profile](docs/module3-asm-waf/lab1/lab1-tps-based.rst) |
-| 3.2 | [Behavioral DoS (BADoS) + bad-actor detection](docs/module3-asm-waf/lab2/lab2-behavioral-dos.rst) |
-| 3.3 | [Proactive Bot Defense](docs/module3-asm-waf/lab3/lab3-bot-defense.rst) |
-| 3.4 | [Stress-based detection](docs/module3-asm-waf/lab4/lab4-stress-based.rst) |
-| 3.5 | [Custom persistent DoS signatures](docs/module3-asm-waf/lab5/lab5-persistent-signatures.rst) |
+| 3.2 | [Stress-based detection](docs/module3-asm-waf/lab2/lab2-stress-based.rst) |
+| 3.3 | [Behavioral DoS (BADoS) + bad-actor detection](docs/module3-asm-waf/lab3/lab3-behavioral-dos.rst) |
+| 3.4 | [Custom persistent DoS signatures](docs/module3-asm-waf/lab4/lab4-persistent-signatures.rst) |
+| 3.5 | [Proactive Bot Defense](docs/module3-asm-waf/lab5/lab5-bot-defense.rst) |
 
 ## Important Notice
 

@@ -1,4 +1,4 @@
-Lab 5: Custom Persistent DoS Signatures
+Lab 4: Custom Persistent DoS Signatures
 =======================================
 
 The **Security > DoS Protection > Signatures** screen holds two kinds of DoS
@@ -158,7 +158,7 @@ Task 4: Promote a dynamic (BADoS) signature to persistent
 The other route is to let BADoS find the attack, then keep the signature it
 generated.
 
-#. Run the behavioral attack from Lab 2 so BADoS generates dynamic signatures::
+#. Run the behavioral attack from Lab 3 so BADoS generates dynamic signatures::
 
       bash /home/ec2-user/lab/scripts/attack/http-flood.sh http://10.1.10.63 60 100
 

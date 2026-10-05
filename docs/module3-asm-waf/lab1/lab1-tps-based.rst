@@ -115,10 +115,10 @@ Task 2: Create the TPS-Based DoS Profile
      thresholds before mitigation is relaxed and finally removed. A longer value
      prevents **flapping** (mitigation toggling on/off) when traffic hovers near
      the threshold; too short and a still-active attack resumes the moment
-     mitigation lifts (see the stress-based de-escalation question in Lab 4).
+     mitigation lifts (see the stress-based de-escalation question in Lab 2).
 
-#. Leave **Behavioral & Stress-based Detection** disabled for this lab (that is
-   Lab 2).
+#. Leave **Behavioral & Stress-based Detection** disabled for this lab (those are
+   Labs 2 and 3).
 
 #. Click **Finished**.
 
@@ -286,7 +286,7 @@ Show both sides during one sustained attack.
    legitimate users *sharing that IP* (e.g. behind the same NAT) are blocked too,
    while clients from other IPs are unaffected — exactly what you just
    demonstrated. For per-user rather than per-IP mitigation, see Behavioral DoS
-   (Lab 2), which targets individual bad actors rather than whole IPs.
+   (Lab 3), which targets individual bad actors rather than whole IPs.
 
 Questions
 ~~~~~~~~~

@@ -14,7 +14,7 @@
 ## the real TCP source. When the source is learned from an L7 header, bad-actor
 ## mitigation is applied as an HTTP rate-limit rather than a TCP-based one.
 ##
-## Attach to vs-lab-dos for the Module 3 Lab 2 bad-actor demo ONLY, then detach
+## Attach to vs-lab-dos for the Module 3 Lab 3 bad-actor demo ONLY, then detach
 ## it — leaving it on would feed synthetic XFF into the other vs-lab-dos labs.
 ##
 ## Tuning (RULE_INIT):

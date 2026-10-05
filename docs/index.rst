@@ -44,7 +44,7 @@ Lab Environment
 
 Each lab targets its own virtual server (see :doc:`setup/lab-topology`), all
 fronting the same ``Hackazon_pool``. ``vs_Hackazon_I`` is the blueprint's
-prebuilt BaDOS demo VS used by Lab 2.
+prebuilt BaDOS demo VS used by Lab 3.
 
 .. important::
 

@@ -1,4 +1,4 @@
-Lab 3: Proactive Bot Defense
+Lab 5: Proactive Bot Defense
 =============================
 
 Proactive Bot Defense injects a JavaScript challenge that legitimate browsers
@@ -100,7 +100,7 @@ steps are **(TMUI)** unless marked CLI.
      Period** 7 days, **Redirect to Pool** None, and **Response and Blocking
      Pages** on **Default**.
 
-   .. figure:: /_static/img/lab3/bot-general-settings.png
+   .. figure:: /_static/img/lab5/bot-general-settings.png
       :alt: Bot Profile General Settings
       :width: 95%
 
@@ -144,7 +144,7 @@ steps are **(TMUI)** unless marked CLI.
    Trusted=Alarm, everything else=Block (it requires a DoS protection profile to be
    enabled).
 
-   .. figure:: /_static/img/lab3/bot-mitigation-settings.png
+   .. figure:: /_static/img/lab5/bot-mitigation-settings.png
       :alt: Bot Mitigation Settings per-class actions
       :width: 95%
 
@@ -171,7 +171,7 @@ steps are **(TMUI)** unless marked CLI.
    - Leave **Single Page Application** and **Cross Domain Requests** at the template
      defaults unless the app needs them.
 
-   .. figure:: /_static/img/lab3/bot-browsers.png
+   .. figure:: /_static/img/lab5/bot-browsers.png
       :alt: Browsers - Browser Verification before access
       :width: 95%
 
@@ -184,7 +184,7 @@ steps are **(TMUI)** unless marked CLI.
    Scanner** — and click **Enforce** (use **Stage** to observe without blocking for
    the readiness period first).
 
-   .. figure:: /_static/img/lab3/bot-signature-enforcement.png
+   .. figure:: /_static/img/lab5/bot-signature-enforcement.png
       :alt: Signature Enforcement list
       :width: 95%
 
@@ -214,7 +214,7 @@ steps are **(TMUI)** unless marked CLI.
    Do **not** whitelist the whole client subnet — it contains kali
    (``10.1.10.100``) and would exempt the attacker.
 
-   .. figure:: /_static/img/lab3/bot-whitelist.png
+   .. figure:: /_static/img/lab5/bot-whitelist.png
       :alt: Whitelist entries
       :width: 95%
 
@@ -409,7 +409,7 @@ Step 1 — Masquerade: a fake Googlebot is blocked
    shows **Bot Class: Malicious Bot**, **Detected Anomalies: Search Engine
    Verification Failed**, **Mitigation Action: Block**, **Request Status: Denied**.
 
-   .. figure:: /_static/img/lab3/bot-masquerade-blocked.png
+   .. figure:: /_static/img/lab5/bot-masquerade-blocked.png
       :alt: Masquerading Googlebot blocked
       :width: 95%
 
@@ -433,7 +433,7 @@ Step 2 — Verified: a real-looking Googlebot is trusted
    allowed. A verified search engine is trusted; it is neither blocked nor
    rate-limited.
 
-   .. figure:: /_static/img/lab3/bot-verified-trusted.png
+   .. figure:: /_static/img/lab5/bot-verified-trusted.png
       :alt: Verified Googlebot classified Trusted Bot
       :width: 95%
 
@@ -459,7 +459,7 @@ with a low cap so a single lab client trips it.
 
       tmsh modify security bot-defense profile lab-bot-defense class-overrides add { Unknown { mitigation { action rate-limit rate-limit-tps 5 } } }
 
-   .. figure:: /_static/img/lab3/bot-mitigation-unknown-ratelimit.png
+   .. figure:: /_static/img/lab5/bot-mitigation-unknown-ratelimit.png
       :alt: Unknown class set to Rate Limit for 5 tps
       :width: 95%
 
@@ -478,7 +478,7 @@ with a low cap so a single lab client trips it.
    **Request Status: Denied**. Traffic *up to* the cap is allowed — rate limiting
    throttles, it does not flat-block.
 
-   .. figure:: /_static/img/lab3/bot-unknown-ratelimit-denied.png
+   .. figure:: /_static/img/lab5/bot-unknown-ratelimit-denied.png
       :alt: Unknown over-limit request rate-limited via TCP reset
       :width: 95%
 
@@ -625,7 +625,7 @@ Part A — Automation from kali (gated)
 
    None of these solve the challenge — a script has no JS engine.
 
-   .. figure:: /_static/img/lab3/bot-masquerade-blocked.png
+   .. figure:: /_static/img/lab5/bot-masquerade-blocked.png
       :alt: Automation from kali is classified and mitigated
       :width: 95%
 
@@ -644,7 +644,7 @@ Part B — A real browser from superjump (passes)
    ``/fonts/...``, ``/products_pictures/...``) — all **Accepted / Browser** — which a
    script never does.
 
-   .. figure:: /_static/img/lab3/bot-browser-verified-superjump.png
+   .. figure:: /_static/img/lab5/bot-browser-verified-superjump.png
       :alt: Real browser from superjump classified Browser and accepted
       :width: 95%
 

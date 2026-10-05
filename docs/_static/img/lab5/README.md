@@ -1,7 +1,7 @@
-# Lab 3 screenshots
+# Lab 5 screenshots
 
 Drop these PNGs here (referenced by `.. figure::` directives in
-`docs/module3-asm-waf/lab3/lab3-bot-defense.rst`). Until they exist, the Sphinx
+`docs/module3-asm-waf/lab5/lab5-bot-defense.rst`). Until they exist, the Sphinx
 build emits "image file not readable" warnings — harmless, but add the files to
 clear them.
 

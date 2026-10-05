@@ -83,7 +83,7 @@ Events**.
    :caption: Labs
 
    lab1/lab1-tps-based
-   lab2/lab2-behavioral-dos
-   lab3/lab3-bot-defense
-   lab4/lab4-stress-based
-   lab5/lab5-persistent-signatures
+   lab2/lab2-stress-based
+   lab3/lab3-behavioral-dos
+   lab4/lab4-persistent-signatures
+   lab5/lab5-bot-defense
