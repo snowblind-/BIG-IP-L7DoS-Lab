@@ -14,3 +14,12 @@ clear them.
 | `bot-whitelist.png` | Whitelist — Source / URL / Mitigation / Challenges entries |
 
 Capture at a readable width; the figures render at 95%.
+
+## Task 5 (search-engine verification + rate limit)
+
+| Filename | Screen |
+|---|---|
+| `bot-masquerade-blocked.png` | Bot Request: fake Googlebot (unverified IP) → Malicious Bot / Search Engine Verification Failed / Denied |
+| `bot-verified-trusted.png` | Bot Request: verified Googlebot → Trusted Bot / Search Engine / Alarm |
+| `bot-mitigation-unknown-ratelimit.png` | Bot Mitigation Settings: Unknown = Rate Limit for 5 tps |
+| `bot-unknown-ratelimit-denied.png` | Bot Request detail: Configured Rate Limit → Actual TCP Reset → Denied |

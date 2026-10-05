@@ -44,7 +44,7 @@ standalone profile provides the full feature set this lab demonstrates:
 
 - per-class actions (Browser / Trusted Bot / Untrusted Bot / Malicious Bot …)
 - **verify-before vs. verify-after** access (when the JS challenge is issued)
-- per-bot **rate limits**
+- **search-engine (FCrDNS) verification** and **Unknown-class rate limiting**
 - custom bot signatures and granular allowlists
 
 (``configs/profiles/bot-defense-standalone.conf`` is the reference config.)
@@ -327,41 +327,173 @@ The standalone profile allows specific bots while blocking others (Search Engine
 #. **(TMUI)** Check classification in **Security > Event Logs > Bot Defense >
    Bot Requests** — note the *Bot Signature* and *Bot Category* columns.
 
-Task 5: Per-Bot Rate Limits
-----------------------------
+Task 5: Search-Engine Verification — Masquerade, Verified, and Rate-Limiting Unknown
+------------------------------------------------------------------------------------
 
-Rate limiting caps a *permitted* bot so a verified-but-misbehaving (or
-spoofed-then-verified) crawler can't overrun the app. The rate-limit **cap** (``rate-limit-tps``) is a CLI-only setting in 17.5 — it is
-not a Bot Mitigation dropdown choice, and ``action rate-limit`` is *rejected*. You
-set the cap on a class's existing mitigation with ``tmsh``.
+A client that merely *claims* to be Googlebot (via User-Agent) matches the Google
+search-engine signature and becomes a **candidate** Trusted Bot. Bot Defense then
+**verifies** it with forward-confirmed reverse DNS (FCrDNS):
 
-#. **(BIG-IP)** Set a **low** cap so a single attack client trips it. One
-   ``curl``/``ab`` client through the slow lab backend only reaches ~20–30 rps, so
-   use **5 TPS** (raise it on a faster backend). Rate-limit the **Trusted Bot**
-   class::
+#. Reverse-DNS (PTR) lookup of the **source IP** — the hostname must be in the
+   search engine's domain (``googlebot.com``).
+#. Forward-confirm (A) lookup of that hostname — it must resolve back to the same
+   source IP.
 
-      tmsh modify security bot-defense profile lab-bot-defense class-overrides modify { "Trusted Bot" { mitigation { action alarm rate-limit-tps 5 } } }
+The outcome drives classification:
 
-   ``rate-limit-tps`` is a throughput **cap** that coexists with the class's action
-   (here ``alarm``) — traffic above it is dropped. There is no ``rate-limit``
-   *action* (``action rate-limit`` errors with *"illegal mitigation action"*). The
-   class default is **30 TPS** — too high for one lab client — so **5** makes the
-   throttle visible.
+- **Pass** → **Trusted Bot** (action *Alarm*; allowed). Trusted bots are allowed by
+  design — they **cannot be blocked or rate-limited** (``action rate-limit`` is
+  rejected on Trusted Bot).
+- **Fail** → **Malicious Bot**, anomaly *Search Engine Verification Failed* →
+  **blocked regardless of class configuration**. Copying a good bot's UA does not
+  make you trusted — it gets you blocked.
 
-#. **(kali)** Generate sustained traffic above the cap with a permitted
-   user-agent (Googlebot classifies as a Trusted Bot)::
+Rate-limiting, meanwhile, is a mitigation for the **Unknown** class (it is the
+Balanced-template default for Unknown), *not* for trusted/verified bots. This task
+shows all three: a masquerader blocked, a verified bot allowed, and the Unknown
+class rate-limited.
 
-      for i in $(seq 1 500); do
-          curl -so /dev/null \
-               -A "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" \
-               http://10.1.10.74/ &
-      done; wait
+Step 0 — Stand up DNS for verification
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-#. **(TMUI)** Observe throttling in **Security > Event Logs > Bot Defense** —
-   requests above **5 TPS** are rate-limited (dropped) while the bot is *not* fully
-   blocked. With the cap this low even a modest ``curl`` loop exceeds it, so the
-   effect is obvious. (The class default is 30 TPS — too high for one lab client to
-   reach on this backend.)
+Because verification is reverse-DNS, BIG-IP needs a **DNS Resolver** reachable over
+the TMM/data-plane interface, and a DNS server that answers the ``googlebot`` PTR/A
+records. In this lab, **kali** hosts a tiny responder
+(``scripts/setup/labdns.py``) that answers exactly:
+
+- ``PTR 10.1.10.100`` → ``crawl-lab-100.googlebot.com`` and the matching forward
+  ``A`` back to ``10.1.10.100`` (so ``10.1.10.100`` **verifies**)
+- nothing for ``10.1.10.200`` (so ``10.1.10.200`` stays a **masquerader**)
+
+#. **(kali)** Start the responder (runs on Python 2 or 3; needs root for port 53)::
+
+      cp /home/ec2-user/lab/scripts/setup/labdns.py /home/ec2-user/labdns.py
+      pkill -f labdns.py 2>/dev/null
+      nohup python /home/ec2-user/labdns.py >/var/log/labdns.log 2>&1 &
+      ss -lunp | grep ':53'            # confirm it is listening on 0.0.0.0:53
+      tail -f /var/log/labdns.log      # watch queries arrive (leave running)
+
+   If ``:53`` is already held, stop the local stub first:
+   ``systemctl stop systemd-resolved``.
+
+#. **(BIG-IP)** Point a DNS Resolver's catch-all zone at kali. This blueprint ships
+   a resolver named ``f5-aws-dns`` (used for Device ID+/idservice) — add a ``.``
+   forward zone to it so reverse lookups go to kali, and disable query-case
+   randomization (dnsmasq-style servers lowercase replies, which breaks
+   verification). **(TMUI)** Network > DNS Resolvers > DNS Resolver List >
+   *f5-aws-dns*: add Forward Zone ``.`` with nameserver ``10.1.10.100:53``, and set
+   **Randomize Query Character Case** = *disabled*. **(CLI)**::
+
+      tmsh modify net dns-resolver f5-aws-dns randomize-query-name-case no forward-zones add { . { nameservers add { 10.1.10.100:53 { } } } }
+      tmsh save sys config
+
+.. note::
+
+   **Resolver selection.** Bot Defense uses the **first** DNS Resolver on the route
+   domain associated with the traffic. If several resolvers exist on route-domain 0,
+   consolidate so the chosen one carries the ``.`` → kali zone; keep specific zones
+   (e.g. ``amazonaws.com``, ``idservice.net``) pointing at their real servers.
+   Lookups egress the **TMM/data-plane** interface (sourced from the BIG-IP self-IP,
+   e.g. ``10.1.10.9``), *not* management — so the resolver target must be reachable
+   over TMM (kali's ``10.1.10.100`` is on the connected client subnet).
+
+Step 1 — Masquerade: a fake Googlebot is blocked
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#. **(kali)** Send the Googlebot UA from ``10.1.10.200`` (which has **no** matching
+   PTR)::
+
+      curl --interface 10.1.10.200 -A "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" -so /dev/null http://10.1.10.74/
+
+#. **(TMUI)** In **Security > Event Logs > Bot Defense > Bot Requests**, the entry
+   shows **Bot Class: Malicious Bot**, **Detected Anomalies: Search Engine
+   Verification Failed**, **Mitigation Action: Block**, **Request Status: Denied**.
+
+   .. figure:: /_static/img/lab3/bot-masquerade-blocked.png
+      :alt: Masquerading Googlebot blocked
+      :width: 95%
+
+      Fake Googlebot from an unverified IP → Malicious Bot, verification failed, denied.
+
+Step 2 — Verified: a real-looking Googlebot is trusted
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#. **(kali)** Send the same UA from ``10.1.10.100`` (PTR faked to
+   ``crawl-lab-100.googlebot.com``)::
+
+      curl --interface 10.1.10.100 -A "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" -so /dev/null http://10.1.10.74/
+
+   Watch the responder log — both lookups must answer (PTR then forward-confirm)::
+
+      q 100.10.1.10.in-addr.arpa type=12 from 10.1.10.9 -> ANSWER
+      q crawl-lab-100.googlebot.com type=1 from 10.1.10.9 -> ANSWER
+
+#. **(TMUI)** The entry now shows **Bot Class: Trusted Bot**, **Bot Categories:
+   Search Engine**, **Detected Anomalies: N/A**, **Mitigation Action: Alarm** —
+   allowed. A verified search engine is trusted; it is neither blocked nor
+   rate-limited.
+
+   .. figure:: /_static/img/lab3/bot-verified-trusted.png
+      :alt: Verified Googlebot classified Trusted Bot
+      :width: 95%
+
+      Same UA from a PTR-verified IP → Trusted Bot, Search Engine, allowed (Alarm).
+
+.. note::
+
+   **Negative cache.** The resolver caches results, including failures. The first
+   request right after you fix DNS may still show the old *verification failed*
+   verdict until the cached entry ages out — re-run, or test from a source that has
+   not been classified yet.
+
+Step 3 — Rate-limit the Unknown class
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Rate limiting is available on the **Unknown** class (not on trusted/verified bots).
+In the **Strict** template Unknown defaults to *Block*; switch it to **Rate Limit**
+with a low cap so a single lab client trips it.
+
+#. **(TMUI)** *Bot Mitigation Settings* → **Unknown** → **Rate Limit for** ``5``
+   **transactions per second**. **(CLI)** — note ``add`` (creates the override) and
+   that ``action rate-limit`` is valid only for Unknown::
+
+      tmsh modify security bot-defense profile lab-bot-defense class-overrides add { Unknown { mitigation { action rate-limit rate-limit-tps 5 } } }
+
+   .. figure:: /_static/img/lab3/bot-mitigation-unknown-ratelimit.png
+      :alt: Unknown class set to Rate Limit for 5 tps
+      :width: 95%
+
+      Bot Mitigation Settings — Unknown = Rate Limit for 5 transactions per second.
+
+#. **(kali)** Drive traffic that classifies as **Unknown** — use a neutral UA (a
+   tool UA like ``curl/8.x`` matches an HTTP-Library signature and lands in
+   *Untrusted*). Confirm the class on one request first, then exceed 5 TPS::
+
+      curl --interface 10.1.10.200 -A "labclient/1.0" -so /dev/null http://10.1.10.74/
+      for i in $(seq 1 300); do curl --interface 10.1.10.200 -A "labclient/1.0" -so /dev/null http://10.1.10.74/ & done; wait
+
+#. **(TMUI)** Above 5 TPS, over-limit requests are denied. Open an entry's
+   **Mitigation Action** detail: **Configured Action: Rate Limit**, **Actual
+   Action: TCP Reset**, **Actual Action Reason: Rate Limit Request (TCP Reset)**,
+   **Request Status: Denied**. Traffic *up to* the cap is allowed — rate limiting
+   throttles, it does not flat-block.
+
+   .. figure:: /_static/img/lab3/bot-unknown-ratelimit-denied.png
+      :alt: Unknown over-limit request rate-limited via TCP reset
+      :width: 95%
+
+      Over-limit Unknown request → Rate Limit enforced as TCP Reset (Denied).
+
+Step 4 — Teardown
+~~~~~~~~~~~~~~~~~~
+
+Restore the profile and remove the lab DNS plumbing so other labs are unaffected::
+
+      tmsh modify security bot-defense profile lab-bot-defense class-overrides modify { Unknown { mitigation { action block } } }
+      tmsh modify net dns-resolver f5-aws-dns forward-zones delete { . }
+      tmsh save sys config
+
+On kali, stop the responder: ``pkill -f labdns.py``.
 
 Task 6: Custom Bot Signature and Policy Exception
 --------------------------------------------------
