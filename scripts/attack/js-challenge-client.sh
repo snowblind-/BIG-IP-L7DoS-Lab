@@ -55,7 +55,7 @@ try:
         print("  (no cookies - challenge may not have completed; raise the wait)")
     for name, host in rows:
         tag = "  <-- bot-defense token" if name.upper().startswith("TS") else ""
-        print(f"  {name}  ({host}){tag}")
+        print("  %s  (%s)%s" % (name, host, tag))
 finally:
     os.remove(tmp)
 PY
