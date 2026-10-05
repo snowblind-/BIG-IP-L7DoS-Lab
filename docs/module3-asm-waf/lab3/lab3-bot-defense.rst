@@ -108,9 +108,7 @@ steps are **(TMUI)** unless marked CLI.
 
    **(CLI equivalent)**::
 
-      tmsh create security bot-defense profile lab-bot-defense \
-          template strict enforcement-mode blocking \
-          description "L7DoS Lab - standalone bot defense"
+      tmsh create security bot-defense profile lab-bot-defense template strict enforcement-mode blocking description "L7DoS Lab - standalone bot defense"
 
 #. **Bot Mitigation Settings** — the action applied *after* a client is classified.
    With **Strict** the defaults are Trusted=Alarm, Untrusted=Block, Suspicious
@@ -154,12 +152,13 @@ steps are **(TMUI)** unless marked CLI.
 
    **(CLI equivalent)**::
 
-      tmsh modify security bot-defense profile lab-bot-defense class-overrides \
-          replace-all-with { \
-              "Trusted Bot"       { mitigation { action alarm } } \
-              "Untrusted Bot"     { mitigation { action captcha } } \
-              "Suspicious Browser"{ mitigation { action captcha } } \
-              "Malicious Bot"     { mitigation { action block } } }
+      tmsh modify security bot-defense profile lab-bot-defense class-overrides replace-all-with { "Trusted Bot" { mitigation { action alarm } } "Untrusted Bot" { mitigation { action captcha } } "Suspicious Browser" { mitigation { action captcha } } "Malicious Bot" { mitigation { action block } } }
+
+   .. note::
+
+      Paste each ``tmsh`` brace command as a **single line**. tmsh does not reliably
+      accept backslash-continued multi-line brace blocks pasted into the shell — it
+      errors with *"properties must be enclosed in braces."*
 
 #. **Browsers** — when/how the JavaScript challenge is issued:
 
@@ -237,11 +236,10 @@ steps are **(TMUI)** unless marked CLI.
       tmsh load sys config merge file /var/tmp/bot-defense-standalone.conf
       tmsh modify ltm virtual vs-lab-bot profiles add { lab-bot-defense }
 
-   The ``.conf`` also sets per-bot **rate limits** (Trusted Bot 50 TPS, Googlebot
-   100, bingbot 60) via ``rate-limit`` actions. The 17.5 **Bot Mitigation** class
-   dropdown does not expose a rate-limit-TPS action, so the UI steps use the
-   available actions (Alarm/CAPTCHA/Block); the rate-limit values are a CLI-only
-   refinement.
+   The ``.conf`` also caps the **Trusted Bot** class with ``rate-limit-tps 5`` — a
+   throughput cap set on the class mitigation *alongside* its action (there is no
+   ``rate-limit`` action in 17.5). The UI Bot Mitigation dropdown sets the action
+   only; the ``rate-limit-tps`` cap is a CLI refinement (see Task 5).
 
 .. note::
 
@@ -279,8 +277,7 @@ Task 3: Demonstrate the Challenge — AFTER access
 
 *Configuration (BIG-IP).* Switch the Browser class to after-access and compare::
 
-   tmsh modify security bot-defense profile lab-bot-defense class-overrides \
-       modify { Browser { verification { action browser-verify-after-access-blocking } } }
+   tmsh modify security bot-defense profile lab-bot-defense class-overrides modify { Browser { verification { action browser-verify-after-access-blocking } } }
 
 #. **(kali)** Repeat the ``curl`` from Task 2. This time the **application
    response is returned** with the verification JavaScript injected into it — the
@@ -293,8 +290,7 @@ Task 3: Demonstrate the Challenge — AFTER access
 
 #. *Configuration (BIG-IP).* Restore the proactive setting when done::
 
-      tmsh modify security bot-defense profile lab-bot-defense class-overrides \
-          modify { Browser { verification { action browser-verify-before-access } } }
+      tmsh modify security bot-defense profile lab-bot-defense class-overrides modify { Browser { verification { action browser-verify-before-access } } }
 
 Task 4: Bot Exceptions by Category and Signature
 -------------------------------------------------
@@ -322,22 +318,22 @@ Task 5: Per-Bot Rate Limits
 ----------------------------
 
 Rate limiting caps a *permitted* bot so a verified-but-misbehaving (or
-spoofed-then-verified) crawler can't overrun the app. **Rate limit is a CLI-level
-action in 17.5** — it is not one of the Bot Mitigation dropdown choices — so apply
-it with ``tmsh``.
+spoofed-then-verified) crawler can't overrun the app. The rate-limit **cap** (``rate-limit-tps``) is a CLI-only setting in 17.5 — it is
+not a Bot Mitigation dropdown choice, and ``action rate-limit`` is *rejected*. You
+set the cap on a class's existing mitigation with ``tmsh``.
 
 #. **(BIG-IP)** Set a **low** cap so a single attack client trips it. One
    ``curl``/``ab`` client through the slow lab backend only reaches ~20–30 rps, so
    use **5 TPS** (raise it on a faster backend). Rate-limit the **Trusted Bot**
    class::
 
-      tmsh modify security bot-defense profile lab-bot-defense class-overrides \
-          modify { "Trusted Bot" { mitigation { action rate-limit rate-limit-tps 5 } } }
+      tmsh modify security bot-defense profile lab-bot-defense class-overrides modify { "Trusted Bot" { mitigation { action alarm rate-limit-tps 5 } } }
 
-   Or rate-limit a specific signature only (e.g. Googlebot)::
-
-      tmsh modify security bot-defense profile lab-bot-defense signature-overrides \
-          replace-all-with { Googlebot { action rate-limit rate-limit-tps 5 } }
+   ``rate-limit-tps`` is a throughput **cap** that coexists with the class's action
+   (here ``alarm``) — traffic above it is dropped. There is no ``rate-limit``
+   *action* (``action rate-limit`` errors with *"illegal mitigation action"*). The
+   class default is **30 TPS** — too high for one lab client — so **5** makes the
+   throttle visible.
 
 #. **(kali)** Generate sustained traffic above the cap with a permitted
    user-agent (Googlebot classifies as a Trusted Bot)::
@@ -351,8 +347,8 @@ it with ``tmsh``.
 #. **(TMUI)** Observe throttling in **Security > Event Logs > Bot Defense** —
    requests above **5 TPS** are rate-limited (dropped) while the bot is *not* fully
    blocked. With the cap this low even a modest ``curl`` loop exceeds it, so the
-   effect is obvious. (The default from the ``.conf`` was 50 TPS — too high for one
-   lab client to reach.)
+   effect is obvious. (The class default is 30 TPS — too high for one lab client to
+   reach on this backend.)
 
 Task 6: Custom Bot Signature and Policy Exception
 --------------------------------------------------
@@ -386,9 +382,7 @@ Step 1 — Create the custom signature *(Configuration — BIG-IP)*
 
    CLI equivalent::
 
-      tmsh create security bot-defense signature lab-scraper \
-          category "DOS Tool" risk medium \
-          user-agent { match-type contains search-string labscraper }
+      tmsh create security bot-defense signature lab-scraper category "DOS Tool" risk medium user-agent { match-type contains search-string labscraper }
 
 .. important::
 
@@ -427,8 +421,7 @@ Exception** so the policy no longer mitigates ``lab-scraper``:
   **None**, save.
 - **CLI:** ::
 
-      tmsh modify security bot-defense profile lab-bot-defense \
-          signature-overrides add { lab-scraper { action none } }
+      tmsh modify security bot-defense profile lab-bot-defense signature-overrides add { lab-scraper { action none } }
 
 Step 4 — Validate the exception
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -445,8 +438,7 @@ Step 4 — Validate the exception
 
 #. *Cleanup (BIG-IP), optional* — remove the exception to restore blocking::
 
-      tmsh modify security bot-defense profile lab-bot-defense \
-          signature-overrides delete { lab-scraper }
+      tmsh modify security bot-defense profile lab-bot-defense signature-overrides delete { lab-scraper }
 
 Task 7: Headless browser — solve and detect the JS challenge (from kali)
 ------------------------------------------------------------------------
