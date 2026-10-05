@@ -22,12 +22,9 @@ mitigated.
    * - Legit client (win-client)
      - ``10.1.10.4`` — Guacamole RDP
      - Real browser — solves the JS challenge and passes
-   * - DoS-profile VS (Task 1)
-     - ``vs-lab-dos`` — ``10.1.10.63``
-     - Carries the DoS-profile Proactive Bot Defense
-   * - Bot Defense VS (Tasks 2+)
+   * - Bot Defense VS
      - ``vs-lab-bot`` — ``10.1.10.74``
-     - Carries the standalone profile; the target the tests hit
+     - Carries the standalone Bot Defense profile; the target the tests hit
    * - Backend
      - ``Hackazon_pool`` (member ``10.1.20.20``)
      - Blueprint's existing pool + live Hackazon member
@@ -40,25 +37,17 @@ mitigated.
    browser); **(TMUI)** = the BIG-IP GUI, reachable from any browser (win-client
    or superjump). Configuration steps run on the BIG-IP (TMUI or Web Shell).
 
-BIG-IP exposes this in two places, and this lab uses both:
+This lab uses a **standalone Bot Defense profile** (``security bot-defense
+profile``) attached to ``vs-lab-bot``. Unlike the bot-signature sub-section bundled
+inside a DoS profile — which can only *block or report* a signature category — the
+standalone profile provides the full feature set this lab demonstrates:
 
-.. list-table::
-   :header-rows: 1
-   :widths: 30 70
+- per-class actions (Browser / Trusted Bot / Untrusted Bot / Malicious Bot …)
+- **verify-before vs. verify-after** access (when the JS challenge is issued)
+- per-bot **rate limits**
+- custom bot signatures and granular allowlists
 
-   * - Mechanism
-     - Capability
-   * - DoS profile *Bot Defense*
-     - All-or-nothing JS challenge plus bot-signature **category** block/report.
-       Simple, bundled with L7 DoS detection. (``bot-defense-profile.json``)
-   * - Standalone **Bot Defense profile**
-     - Per-class actions, **verify-before vs verify-after** access, per-bot
-       **rate limits**, custom signatures, and granular allowlists.
-       (``bot-defense-standalone.conf``)
-
-The DoS-profile approach can only *block or report* a category. The per-bot rate
-limits, custom signatures, and before/after challenge behaviour this lab
-demonstrates require the standalone Bot Defense profile.
+(``configs/profiles/bot-defense-standalone.conf`` is the reference config.)
 
 Before vs. After Access Verification
 -------------------------------------
@@ -91,76 +80,177 @@ is issued relative to the application seeing the request.
 The cookie flow is the same in every case: solve once, present the cookie on
 subsequent requests, and you are not re-challenged for the session.
 
-Task 1: Create the DoS-Profile Bot Defense (baseline)
-------------------------------------------------------
-
-*Configuration — run on the BIG-IP (TMUI/CLI).* Build the DoS profile in the
-TMUI (its proactive bot defense is far easier to configure in the UI than via
-``tmsh``), then attach it by UI or CLI.
-
-#. **Security > DoS Protection > Protection Profiles > Create**. Name it
-   ``lab_dos_bot_profile`` and click **Finished**, then open it and select the
-   **Application Security** tab. (Section labels vary slightly by TMOS version.)
-
-#. Under **Proactive Bot Defense**, set **Operation Mode** to **Always**
-   (proactive, always on), and enable **Block Suspicious Browsers** and the
-   **CAPTCHA** challenge.
-
-#. Under **Bot Signatures**, enable bot-signature checking. Set the malicious
-   categories — **DOS Tool**, **HTTP Library**, **Network Scanner** — to
-   **Block**, and leave **Search Engine**, **Crawler**, and **Site Monitor** on
-   **Report**.
-
-#. Attach the profile to ``vs-lab-dos``:
-
-   - **UI:** Local Traffic > Virtual Servers > ``vs-lab-dos`` > **Security >
-     Policies**, set **DoS Protection Profile** = ``lab_dos_bot_profile``,
-     **Update**.
-   - **CLI:** ``tmsh modify ltm virtual vs-lab-dos profiles add { lab_dos_bot_profile }``
-
-#. Confirm the settings (and capture the exact config for CLI reuse)::
-
-      tmsh list security dos profile lab_dos_bot_profile application
-
-.. note::
-
-   ``configs/profiles/bot-defense-profile.json`` is the same profile as an AS3
-   declaration — an **instructor** can pre-deploy it instead of clicking through
-   (see "Deploying with AS3"). Participants use the UI/CLI steps above.
-
-.. note::
-
-   The lab uses two VIPs so each method is demonstrated in isolation: the DoS
-   profile's proactive bot defense on ``vs-lab-dos`` (Task 1) and the standalone
-   Bot Defense profile on ``vs-lab-bot`` (Tasks 2+). There is also a hard reason
-   to keep them apart **if the DoS profile is deployed via AS3**: AS3 auto-
-   generates a shadow ``f5_appsvcs_<dos-profile-name>_botDefense`` profile, which
-   then collides with a separate standalone Bot Defense profile on the same VS
-   (duplicate-profile error). Building via UI/CLI (Task 1) doesn't create that
-   shadow profile, but keeping the split still gives the cleanest demo. See
-   :doc:`/setup/lab-topology` for the VIP map.
-
-Task 2: Deploy the Standalone Bot Defense Profile
+Task 1: Create the Standalone Bot Defense Profile
 --------------------------------------------------
 
-*Configuration — run on the BIG-IP.*
+Build the profile in the 17.5 UI so every setting is explicit; the ``tmsh`` merge
+in the last note is the instructor fast-path that produces the same result. All
+steps are **(TMUI)** unless marked CLI.
 
-#. Copy and merge ``configs/profiles/bot-defense-standalone.conf``::
+#. **General Settings.** Navigate to **Security > Bot Defense > Bot Profiles** and
+   click **Create**. Set:
 
-      tmsh load sys config merge file /var/tmp/bot-defense-standalone.conf
+   - **Profile Name:** ``lab-bot-defense``
+   - **Enforcement Mode:** **Blocking**
+   - **Profile Template:** **Strict** — sets strong defaults you then tune
+     (verify-before-access; block untrusted / suspicious / malicious / unknown;
+     DoS Attack Mitigation Mode enabled). *Relaxed* (challenge-free) and *Balanced*
+     (verify-after-access) are the gentler alternatives.
+   - Leave **Signature Staging upon Update** **Disabled**, **Enforcement Readiness
+     Period** 7 days, **Redirect to Pool** None, and **Response and Blocking
+     Pages** on **Default**.
 
-#. Bind it to the lab virtual server::
+   .. figure:: /_static/img/lab3/bot-general-settings.png
+      :alt: Bot Profile General Settings
+      :width: 95%
+
+      General Settings — name, Enforcement Mode = Blocking, Profile Template = Strict.
+
+   **(CLI equivalent)**::
+
+      tmsh create security bot-defense profile lab-bot-defense \
+          template strict enforcement-mode blocking \
+          description "L7DoS Lab - standalone bot defense"
+
+#. **Bot Mitigation Settings** — the action applied *after* a client is classified.
+   With **Strict** the defaults are Trusted=Alarm, Untrusted=Block, Suspicious
+   Browser=Block, Malicious=Block, Unknown=Block. Each is a dropdown (**None /
+   Alarm / CAPTCHA / Block / Honeypot Page / Redirect to Pool / TCP Reset**). Tune
+   two classes so the gentler actions are demonstrated:
+
+   .. list-table::
+      :header-rows: 1
+      :widths: 26 20 54
+
+      * - Class
+        - Action
+        - Why
+      * - Trusted Bot
+        - Alarm
+        - Verified good bots (search engines) — log, don't block.
+      * - Untrusted Bot
+        - CAPTCHA
+        - Non-malicious tools/crawlers — challenge rather than hard-block.
+      * - Suspicious Browser
+        - CAPTCHA
+        - Let a real-but-odd browser prove itself.
+      * - Malicious Bot
+        - Block
+        - DoS tools / scanners — block outright.
+      * - Unknown
+        - Block
+        - Unclassified non-browser clients.
+
+   Leave **DoS Attack Mitigation Mode = Enabled** (Strict default): during a DoS
+   attack it overrides the per-class actions to Browser=Verify-Before-Access,
+   Trusted=Alarm, everything else=Block (it requires a DoS protection profile to be
+   enabled).
+
+   .. figure:: /_static/img/lab3/bot-mitigation-settings.png
+      :alt: Bot Mitigation Settings per-class actions
+      :width: 95%
+
+      Per-class mitigation actions + Strict Mitigation Enforcement Cases.
+
+   **(CLI equivalent)**::
+
+      tmsh modify security bot-defense profile lab-bot-defense class-overrides \
+          replace-all-with { \
+              "Trusted Bot"       { mitigation { action alarm } } \
+              "Untrusted Bot"     { mitigation { action captcha } } \
+              "Suspicious Browser"{ mitigation { action captcha } } \
+              "Malicious Bot"     { mitigation { action block } } }
+
+#. **Browsers** — when/how the JavaScript challenge is issued:
+
+   - **Browser Access:** **Allow**
+   - **Browser Verification:** **Verify Before Access** — proactive: the challenge
+     is served first and the app only sees the request after the browser solves it.
+     This is the Strict default and the behaviour Tasks 2–3 demonstrate; switch to
+     **Verify After Access (Blocking/Detection)** to show the "after" variant.
+   - **Device ID Mode:** **Generate Before Access** (Strict default)
+   - Leave **Single Page Application** and **Cross Domain Requests** at the template
+     defaults unless the app needs them.
+
+   .. figure:: /_static/img/lab3/bot-browsers.png
+      :alt: Browsers - Browser Verification before access
+      :width: 95%
+
+      Browsers — Browser Verification = Verify Before Access.
+
+#. **Signature Enforcement** — the installed bot signatures (2,600+), grouped by
+   **Bot Class** and **Bot Category**, each **Staged** or **Enforced**. Filter by
+   category and review: keep **Search Engine** / **Site Monitor** benign; select
+   the tooling categories — **HTTP Library**, **DOS Tool**, **Vulnerability
+   Scanner** — and click **Enforce** (use **Stage** to observe without blocking for
+   the readiness period first).
+
+   .. figure:: /_static/img/lab3/bot-signature-enforcement.png
+      :alt: Signature Enforcement list
+      :width: 95%
+
+      Signature Enforcement — enforce tooling categories; stage to observe first.
+
+#. **Whitelist** — paths/sources exempt from mitigation and challenges (consulted
+   **first**). Click **Create** and add known-safe assets with **Mitigation** and
+   **Challenges** both **off**:
+
+   .. list-table::
+      :header-rows: 1
+      :widths: 22 34 22 22
+
+      * - Source
+        - URL
+        - Mitigation
+        - Challenges
+      * - Any
+        - ``/favicon.ico``
+        - off
+        - off
+      * - Any
+        - ``/health``
+        - off
+        - off
+
+   Do **not** whitelist the whole client subnet — it contains kali
+   (``10.1.10.100``) and would exempt the attacker.
+
+   .. figure:: /_static/img/lab3/bot-whitelist.png
+      :alt: Whitelist entries
+      :width: 95%
+
+      Whitelist — safe URLs with mitigation and challenges disabled.
+
+#. **Save** the profile, then **bind it** to the virtual server — Local Traffic >
+   Virtual Servers > ``vs-lab-bot`` > **Security > Policies**, set **Bot Defense
+   Profile** = ``lab-bot-defense`` > **Update**. **(CLI)**::
 
       tmsh modify ltm virtual vs-lab-bot profiles add { lab-bot-defense }
+      tmsh list ltm virtual vs-lab-bot profiles
 
-#. Verify the per-class verification and mitigation actions loaded::
+.. note::
 
-      tmsh list security bot-defense profile lab-bot-defense class-overrides
+   **Instructor fast-path.** The whole profile is in
+   ``configs/profiles/bot-defense-standalone.conf`` — merge it instead of clicking
+   through, then bind::
 
-   You should see ``Browser`` set to ``browser-verify-before-access`` and
-   ``Trusted Bot`` set to ``rate-limit`` with ``rate-limit-tps 50``.
+      tmsh load sys config merge file /var/tmp/bot-defense-standalone.conf
+      tmsh modify ltm virtual vs-lab-bot profiles add { lab-bot-defense }
 
-Task 3: Demonstrate the Challenge — BEFORE access
+   The ``.conf`` also sets per-bot **rate limits** (Trusted Bot 50 TPS, Googlebot
+   100, bingbot 60) via ``rate-limit`` actions. The 17.5 **Bot Mitigation** class
+   dropdown does not expose a rate-limit-TPS action, so the UI steps use the
+   available actions (Alarm/CAPTCHA/Block); the rate-limit values are a CLI-only
+   refinement.
+
+.. note::
+
+   **Mitigation precedence** (order BIG-IP consults): Whitelist → DoS Attack
+   Mitigation Mode → Microservices → Verified API Access → per-class profile
+   mitigation. A whitelisted path is never challenged, and during a DoS attack the
+   DoS-mode settings override the per-class actions.
+
+Task 2: Demonstrate the Challenge — BEFORE access
 --------------------------------------------------
 
 With ``browser-verify-before-access`` (the value shipped in the config), compare
@@ -184,7 +274,7 @@ a script against a real browser:
 This kali-vs-win-client contrast *is* the demonstration: identical request, blocked
 for the script, transparent for the browser.
 
-Task 4: Demonstrate the Challenge — AFTER access
+Task 3: Demonstrate the Challenge — AFTER access
 -------------------------------------------------
 
 *Configuration (BIG-IP).* Switch the Browser class to after-access and compare::
@@ -192,7 +282,7 @@ Task 4: Demonstrate the Challenge — AFTER access
    tmsh modify security bot-defense profile lab-bot-defense class-overrides \
        modify { Browser { verification { action browser-verify-after-access-blocking } } }
 
-#. **(kali)** Repeat the ``curl`` from Task 3. This time the **application
+#. **(kali)** Repeat the ``curl`` from Task 2. This time the **application
    response is returned** with the verification JavaScript injected into it — the
    app *did* see the first request. ``curl`` cannot solve the JS, so the **next**
    request is mitigated.
@@ -206,7 +296,7 @@ Task 4: Demonstrate the Challenge — AFTER access
       tmsh modify security bot-defense profile lab-bot-defense class-overrides \
           modify { Browser { verification { action browser-verify-before-access } } }
 
-Task 5: Bot Exceptions by Category and Signature
+Task 4: Bot Exceptions by Category and Signature
 -------------------------------------------------
 
 The standalone profile allows specific bots while blocking others (Search Engine
@@ -228,15 +318,29 @@ The standalone profile allows specific bots while blocking others (Search Engine
 #. **(TMUI)** Check classification in **Security > Event Logs > Bot Defense >
    Bot Requests** — note the *Bot Signature* and *Bot Category* columns.
 
-Task 6: Per-Bot Rate Limits
+Task 5: Per-Bot Rate Limits
 ----------------------------
 
-The config caps trusted automation two ways: the ``Trusted Bot`` class at
-``rate-limit-tps 50``, and specific signatures (``Googlebot`` 100 TPS,
-``bingbot`` 60 TPS) via ``signature-overrides``.
+Rate limiting caps a *permitted* bot so a verified-but-misbehaving (or
+spoofed-then-verified) crawler can't overrun the app. **Rate limit is a CLI-level
+action in 17.5** — it is not one of the Bot Mitigation dropdown choices — so apply
+it with ``tmsh``.
+
+#. **(BIG-IP)** Set a **low** cap so a single attack client trips it. One
+   ``curl``/``ab`` client through the slow lab backend only reaches ~20–30 rps, so
+   use **5 TPS** (raise it on a faster backend). Rate-limit the **Trusted Bot**
+   class::
+
+      tmsh modify security bot-defense profile lab-bot-defense class-overrides \
+          modify { "Trusted Bot" { mitigation { action rate-limit rate-limit-tps 5 } } }
+
+   Or rate-limit a specific signature only (e.g. Googlebot)::
+
+      tmsh modify security bot-defense profile lab-bot-defense signature-overrides \
+          replace-all-with { Googlebot { action rate-limit rate-limit-tps 5 } }
 
 #. **(kali)** Generate sustained traffic above the cap with a permitted
-   user-agent::
+   user-agent (Googlebot classifies as a Trusted Bot)::
 
       for i in $(seq 1 500); do
           curl -so /dev/null \
@@ -245,10 +349,12 @@ The config caps trusted automation two ways: the ``Trusted Bot`` class at
       done; wait
 
 #. **(TMUI)** Observe throttling in **Security > Event Logs > Bot Defense** —
-   requests above the configured TPS are rate-limited (dropped) while the bot is
-   *not* fully blocked. Lower ``rate-limit-tps`` to make the effect obvious.
+   requests above **5 TPS** are rate-limited (dropped) while the bot is *not* fully
+   blocked. With the cap this low even a modest ``curl`` loop exceeds it, so the
+   effect is obvious. (The default from the ``.conf`` was 50 TPS — too high for one
+   lab client to reach.)
 
-Task 7: Custom Bot Signature and Policy Exception
+Task 6: Custom Bot Signature and Policy Exception
 --------------------------------------------------
 
 Beyond the built-in signatures, you can author a **custom bot signature** to
@@ -342,10 +448,10 @@ Step 4 — Validate the exception
       tmsh modify security bot-defense profile lab-bot-defense \
           signature-overrides delete { lab-scraper }
 
-Task 8: Headless browser — solve and detect the JS challenge (from kali)
+Task 7: Headless browser — solve and detect the JS challenge (from kali)
 ------------------------------------------------------------------------
 
-Tasks 3–4 contrasted ``curl`` (kali) with a real browser (win-client). You can
+Tasks 2–3 contrasted ``curl`` (kali) with a real browser (win-client). You can
 show the same *solve vs. fail* entirely from kali using its base-distro
 **Firefox ESR** — no GUI, no Selenium, no extra packages — and then see how Bot
 Defense classifies an automated browser.
@@ -371,7 +477,7 @@ Defense classifies an automated browser.
 
 **Detection.** Solving the JS challenge only proves the client is *not* a plain
 script — it does not make a headless browser "trusted". With **Block Suspicious
-Browsers** enabled (Task 1) and bot-signature checking on, watch whether the
+Browsers** enabled in the profile and bot-signature checking on, watch whether the
 headless Firefox is classified as a clean **Browser** or flagged as a
 **Suspicious Browser** / automation in the Bot Requests log. Proactive Bot
 Defense combines the JS challenge with browser-integrity and signature checks, so
@@ -425,7 +531,7 @@ Questions
 - The Signature Exception in Step 3 disables ``lab-scraper`` globally. How would
   you instead except *only* a trusted URL or source IP while still blocking that
   user-agent everywhere else?
-- The headless Firefox in Task 8 solved the JS challenge and earned a cookie. Why
+- The headless Firefox in Task 7 solved the JS challenge and earned a cookie. Why
   is passing the challenge *not* enough to treat it as a legitimate user, and what
   additional Bot Defense signals still distinguish it from a real browser?
 - In the replay test, the same ``TSPD_101`` cookie is sent from kali's primary IP

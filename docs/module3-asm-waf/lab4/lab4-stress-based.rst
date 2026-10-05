@@ -126,8 +126,8 @@ Task 3: Simulate a Slow Server Under Attack
      climbs above baseline
    - an attack appears in the **Attacks** table (Vector: Application, a stress
      trigger)
-   - the attacking sources show in the right-rail **Transaction Origins /
-     Client IP Addresses** and are being throttled
+   - the attacking sources show in the right-rail **Transaction Origins** /
+     **Client IP Addresses** panels and are being throttled
 
 Task 4: Verify Proportional Throttling (attacker throttled, others served)
 --------------------------------------------------------------------------
@@ -139,7 +139,7 @@ Task 4: Verify Proportional Throttling (attacker throttled, others served)
    *causing* the latency, not legitimate clients.
 
 #. **(kali, low-rate)** Optionally quantify it — a low-rate client keeps normal
-   latency and **200**s while the flood is throttled::
+   latency and **200** responses while the flood is throttled::
 
       for i in $(seq 1 10); do
           curl -so /dev/null -w "Time: %{time_total}s Code: %{http_code}\n" http://10.1.10.63/
