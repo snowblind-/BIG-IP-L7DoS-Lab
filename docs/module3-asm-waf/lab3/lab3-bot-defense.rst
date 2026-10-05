@@ -227,6 +227,19 @@ steps are **(TMUI)** unless marked CLI.
       tmsh modify ltm virtual vs-lab-bot profiles add { lab-bot-defense }
       tmsh list ltm virtual vs-lab-bot profiles
 
+#. **Attach the security log profile** — Bot Defense events only reach **Security >
+   Event Logs > Bot Defense** if ``vs-lab-bot`` carries a log profile. In *Security
+   > Policies* set **Log Profile** = **Enabled** and move **L7-DOS_BOT_Logger** into
+   *Selected* > **Update**. **(CLI)** (a duplicate-profile error just means it is
+   already attached)::
+
+      tmsh modify ltm virtual vs-lab-bot security-log-profiles add { L7-DOS_BOT_Logger }
+      tmsh list ltm virtual vs-lab-bot profiles security-log-profiles
+
+   If a Bot Defense event log stays empty during this lab, a missing log profile on
+   the VS is the first thing to check (also the module's
+   :doc:`/module3-asm-waf/module3` *Before you begin* step).
+
 .. note::
 
    **Instructor fast-path.** The whole profile is in
