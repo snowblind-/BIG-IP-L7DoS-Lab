@@ -1,72 +1,86 @@
 #!/usr/bin/env bash
 # js-challenge-client.sh
 #
-# Demonstrate the Bot Defense JavaScript challenge from kali using only
-# base-distro tools: firefox-esr (real JS engine) + python3 (stdlib sqlite3).
-# No Selenium, no pip, no extra packages.
+# Show how Bot Defense treats NON-BROWSER automation vs. a real browser.
 #
-# It contrasts two clients against the same URL:
-#   * curl          - no JS engine, cannot solve the challenge (gets mitigated)
-#   * firefox-esr   - executes the challenge JS, earns the TS* cookie, passes
+# This lab image cannot run a modern browser from kali (Firefox ESR 45 has no
+# --headless; a 2025 Chrome needs a newer glibc/NSS than the image provides), so
+# this script drives HTTP clients only (Part A). Run the real-browser half
+# manually from superjump (Lab 3, Task 7 Part B).
 #
-# Usage:  ./js-challenge-client.sh <url> [wait_secs]
-#   e.g.  ./js-challenge-client.sh http://10.1.10.74/ 8
+# Part A, from kali:
+#   * curl with no JS engine      -> receives the JS CHALLENGE page, never the app
+#   * three client identities     -> each classified/mitigated differently:
+#       bare "Mozilla/5.0"        -> Malicious Bot / Exploit Tool (sparse UA = tool)
+#       "labclient/1.0"           -> Unknown (rate-limited if Unknown = Rate Limit)
+#       Googlebot UA              -> Trusted Bot (if FCrDNS-verified) or
+#                                    Malicious Bot / Search Engine Verification Failed
 #
+# Usage:  ./js-challenge-client.sh [url]
+#   e.g.  ./js-challenge-client.sh http://10.1.10.74/
+
 set -uo pipefail
-
 URL="${1:-http://10.1.10.74/}"
-WAIT="${2:-8}"
-OUT="$(mktemp -d)"; PROF="$OUT/prof"; mkdir -p "$PROF"
-FF="$(command -v firefox-esr || command -v firefox || true)"
-
+OUT="$(mktemp -d)"
 echo "== Target: $URL =="
 
-# 1) curl - no JavaScript
-echo; echo "--- curl (no JavaScript) ---"
+# 1) curl, no JavaScript -> gets the challenge page, not the app
+echo; echo "--- curl (no JavaScript engine) ---"
 code="$(curl -s -o "$OUT/curl.html" -w '%{http_code}' -A 'Mozilla/5.0' "$URL" || true)"
-echo "HTTP $code, $(wc -c < "$OUT/curl.html") bytes"
+echo "HTTP $code, $(wc -c < "$OUT/curl.html") bytes  (saved: $OUT/curl.html)"
 if grep -qiE "challenge|please wait|javascript|window\.location|eval\(|bot" "$OUT/curl.html"; then
-    echo "curl received the JS CHALLENGE (not the app) - expected for a script."
+    echo "-> curl received the JS CHALLENGE page, not the app. A script cannot solve it."
 else
-    echo "curl page saved to $OUT/curl.html - inspect it."
+    echo "-> inspect $OUT/curl.html to see what came back."
 fi
+echo "   (head of the returned page:)"
+sed -n '1,12p' "$OUT/curl.html" | sed 's/^/     /'
 
-# 2) firefox-esr headless - real JS engine
-if [ -z "$FF" ]; then
-    echo; echo "firefox-esr not found. Base Kali ships it; otherwise use the GUI browser."
-    exit 1
-fi
-echo; echo "--- firefox-esr --headless (executes JavaScript) ---"
-"$FF" --headless --new-instance --profile "$PROF" "$URL" >/dev/null 2>&1 &
-FFPID=$!
-sleep "$WAIT"                                   # let the challenge solve + reload
-kill -TERM "$FFPID" 2>/dev/null; sleep 2        # SIGTERM lets Firefox flush cookies
+# 2) client-identity personas -> classification differs by who you claim to be
+echo; echo "--- client identity personas (then read Bot Requests for each) ---"
+run() { # $1 label  $2 ua  [extra curl args...]
+    local label="$1" ua="$2"; shift 2
+    local c; c="$(curl -s -o /dev/null -w '%{http_code}' -A "$ua" "$@" "$URL" || true)"
+    printf '  %-20s HTTP %s\n' "$label" "$c"
+}
+run "bare Mozilla/5.0" "Mozilla/5.0"
+run "neutral tool UA"  "labclient/1.0"
+run "Googlebot (UA)"   "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
 
-# Cookies the browser earned (python3 stdlib sqlite3 - copy first, DB may be locked)
-python3 - "$PROF/cookies.sqlite" <<'PY'
-import sqlite3, sys, os, shutil, tempfile
-db = sys.argv[1]
-if not os.path.exists(db):
-    print("  no cookies.sqlite yet - raise the wait_secs argument"); raise SystemExit
-tmp = tempfile.mktemp(suffix=".sqlite"); shutil.copy(db, tmp)
-try:
-    rows = sqlite3.connect(tmp).execute("select name, host from moz_cookies").fetchall()
-    if not rows:
-        print("  (no cookies - challenge may not have completed; raise the wait)")
-    for name, host in rows:
-        tag = "  <-- bot-defense token" if name.upper().startswith("TS") else ""
-        print("  %s  (%s)%s" % (name, host, tag))
-finally:
-    os.remove(tmp)
-PY
+cat <<'EOF'
 
-# Screenshot what the browser rendered (app vs challenge page)
-"$FF" --headless --profile "$PROF" --screenshot "$OUT/browser.png" "$URL" >/dev/null 2>&1 || true
+Open Security > Event Logs > Bot Defense > Bot Requests and note Bot Class /
+Mitigation Action for each source:
+  bare Mozilla/5.0  -> Malicious Bot / Exploit Tool  (blocked)
+  labclient/1.0     -> Unknown  (rate-limited if Unknown = Rate Limit, Task 5)
+  Googlebot UA      -> Trusted Bot (if the source PTR verifies) OR
+                       Malicious Bot / Search Engine Verification Failed (masquerade)
 
-echo
-echo "curl page : $OUT/curl.html"
-echo "browser   : $OUT/browser.png"
-echo
-echo "If Firefox earned a TS* cookie and browser.png shows the app, the headless"
-echo "browser SOLVED the challenge that curl could not. Do NOT copy the TS cookie"
-echo "into curl - the bot-defense cookie is bound to the client that solved it."
+None of these solve the JS challenge -- a script has no JS engine. Run the
+real-browser half manually from superjump (ACCESS > FIREFOX -> this URL) and watch
+the Browser-verified entry appear (Lab 3, Task 7 Part B).
+EOF
+
+# ---------------------------------------------------------------------------
+# OPTIONAL (future / upgraded image): scripted headless solve with a MODERN
+# browser. Intentionally skipped here -- the lab image's glibc/NSS are too old to
+# run a current Chrome, and Firefox ESR 45 has no headless mode. If a usable
+# Chrome/Chromium is ever present, this block drives it and screenshots the result
+# (app = solved; challenge = failed). Even when it SOLVES the challenge, a headless
+# browser leaks automation signals (navigator.webdriver, etc.) and may still log as
+# a Suspicious Browser -- which is the "solved but still detected" demo.
+#
+#   CHROME="$(command -v chromium || command -v google-chrome || echo /tmp/chrome-linux64/chrome)"
+#   if "$CHROME" --version >/dev/null 2>&1; then
+#       mkdir -p "$OUT/cprof"
+#       "$CHROME" --headless=new --no-sandbox --disable-gpu \
+#           --user-data-dir="$OUT/cprof" --virtual-time-budget=12000 \
+#           --screenshot="$OUT/browser.png" "$URL" >/dev/null 2>&1 || true
+#       echo "headless screenshot: $OUT/browser.png"
+#   fi
+#
+# To fetch a modern Chrome on an upgraded image (needs internet):
+#   U=$(curl -s https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json \
+#       | tr ',' '\n' | grep -o 'https://[^"]*linux64/chrome-linux64.zip' | head -1)
+#   curl -L -o /tmp/chrome.zip "$U" && unzip -q /tmp/chrome.zip -d /tmp/
+# ---------------------------------------------------------------------------

@@ -23,3 +23,4 @@ Capture at a readable width; the figures render at 95%.
 | `bot-verified-trusted.png` | Bot Request: verified Googlebot → Trusted Bot / Search Engine / Alarm |
 | `bot-mitigation-unknown-ratelimit.png` | Bot Mitigation Settings: Unknown = Rate Limit for 5 tps |
 | `bot-unknown-ratelimit-denied.png` | Bot Request detail: Configured Rate Limit → Actual TCP Reset → Denied |
+| `bot-browser-verified-superjump.png` | Bot Request: real browser from superjump (10.1.1.8) → Browser (verified) / Accepted |

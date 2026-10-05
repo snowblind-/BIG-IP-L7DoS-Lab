@@ -585,77 +585,110 @@ Step 4 — Validate the exception
 
       tmsh modify security bot-defense profile lab-bot-defense signature-overrides delete { lab-scraper }
 
-Task 7: Headless browser — solve and detect the JS challenge (from kali)
-------------------------------------------------------------------------
+Task 7: The JS Challenge — Automation Is Gated, a Real Browser Passes
+---------------------------------------------------------------------
 
-Tasks 2–3 contrasted ``curl`` (kali) with a real browser (win-client). You can
-show the same *solve vs. fail* entirely from kali using its base-distro
-**Firefox ESR** — no GUI, no Selenium, no extra packages — and then see how Bot
-Defense classifies an automated browser.
-
-#. **(kali)** Confirm the base tools are present::
-
-      command -v firefox-esr ; python3 --version
-
-#. **(kali)** Run the client against the Bot Defense VS (``vs-lab-bot``)::
-
-      bash /home/ec2-user/lab/scripts/attack/js-challenge-client.sh http://10.1.10.74/ 8
-
-   It fetches once with ``curl`` (no JS → gets the challenge), then drives headless
-   Firefox ESR (executes the challenge JS, earns a ``TS*`` cookie), lists the
-   cookies it obtained, and screenshots what the browser rendered. If the cookie
-   list is empty or the screenshot still shows the challenge, raise the wait
-   argument (the JS challenge needs time to solve and reload).
-
-#. **(TMUI)** In **Security > Event Logs > Bot Defense > Bot Requests**, compare
-   the two clients: the ``curl`` request is **mitigated** (challenge not solved,
-   no cookie), while the headless-Firefox request obtained a cookie and reached
-   the app.
-
-**Detection.** Solving the JS challenge only proves the client is *not* a plain
-script — it does not make a headless browser "trusted". With **Block Suspicious
-Browsers** enabled in the profile and bot-signature checking on, watch whether the
-headless Firefox is classified as a clean **Browser** or flagged as a
-**Suspicious Browser** / automation in the Bot Requests log. Proactive Bot
-Defense combines the JS challenge with browser-integrity and signature checks, so
-a JS-capable automation can still be detected even though it passed the challenge.
+Tasks 2–3 showed *when* the challenge is issued. This task shows the *outcome*:
+non-browser automation never solves it and is classified/mitigated, while a real
+browser solves it transparently and is classified **Browser**.
 
 .. note::
 
-   Whether a solved ``TSPD_101`` cookie can be replayed from another client
-   depends on how strictly the deployment binds it (source IP, User-Agent, TLS
-   fingerprint) and its TTL. It is **signed and time-stamped**, so it can't be
-   forged or altered — but BIG-IP TS/TSPD cookies are often *replayable within
-   their lifetime*. The next step shows where that boundary is on this box.
+   **Why the demo uses two sources.** Solving a modern Bot Defense JS challenge
+   needs a current browser engine. The lab's kali image cannot run one (Firefox ESR
+   45 has no headless mode; a 2025 Chrome needs a newer glibc/NSS than the image
+   provides), so the **automation** half runs from kali and the **real-browser**
+   half runs from **superjump**, whose in-browser Firefox is current. A *scripted
+   headless* browser that solves the challenge yet is still flagged as automation
+   requires a modern engine — ``scripts/attack/js-challenge-client.sh`` carries a
+   commented, version-guarded Chrome-for-Testing block that activates if the image
+   is ever upgraded.
 
-Replay test — cross-source cookie binding *(from kali)*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Part A — Automation from kali (gated)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Solve the challenge once, then replay the earned cookie from the same source and
-from a **different** source IP to see whether Bot Defense pins it to the solver.
+#. **(kali)** Run the client against ``vs-lab-bot``::
 
-#. **(kali)** Run the replay test against ``vs-lab-bot``::
+      bash /home/ec2-user/lab/scripts/attack/js-challenge-client.sh http://10.1.10.74/
 
-      bash /home/ec2-user/lab/scripts/attack/bot-cookie-replay.sh http://10.1.10.74/ 8 10.1.10.200
+   It shows ``curl`` receiving the **JS challenge page** (not the app), then sends
+   three client identities and prints the classification to expect for each.
 
-   It solves with headless Firefox, extracts the ``TSPD_101`` cookie, then
-   ``curl``-replays it (a) from kali's primary source and (b) bound to
-   ``--interface 10.1.10.200``. Read the verdict it prints:
+#. **(TMUI)** In **Security > Event Logs > Bot Defense > Bot Requests**, confirm
+   each kali source:
 
-   - **same PASSED, alt CHALLENGED** → the cookie is **source-IP bound**;
-     copying it to another host fails and that host is re-challenged.
-   - **both PASSED** → not strictly IP-bound → the cookie is **replayable** to
-     other hosts within its TTL (the classic scraper reuse).
-   - **both CHALLENGED** → the cookie is also bound to something ``curl`` lacks
-     (User-Agent / TLS fingerprint), so even same-host replay is rejected.
+   - bare ``Mozilla/5.0`` → **Malicious Bot / Exploit Tool** → blocked (a sparse UA
+     matches an exploit-tool signature)
+   - ``labclient/1.0`` → **Unknown** → rate-limited, if Unknown = Rate Limit (Task 5)
+   - Googlebot UA → **Trusted Bot** if the source PTR verifies (Task 5, Step 2), or
+     **Malicious Bot / Search Engine Verification Failed** if not (Step 1)
 
-#. **(TMUI)** Cross-check in **Security > Event Logs > Bot Defense > Bot
-   Requests** — a rejected replay shows as challenged/mitigated, and ASM may log a
-   cookie-integrity / hijacking event for the mismatched source.
+   None of these solve the challenge — a script has no JS engine.
 
-This is exactly why F5 layers Device ID+, browser-integrity checks, and
-Distributed Cloud Bot Defense (whose telemetry is IP/browser-bound with **no**
-reusable token) on top of the challenge cookie.
+   .. figure:: /_static/img/lab3/bot-masquerade-blocked.png
+      :alt: Automation from kali is classified and mitigated
+      :width: 95%
+
+      Non-browser automation from kali → classified and mitigated; it never reaches the app.
+
+Part B — A real browser from superjump (passes)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#. **(superjump)** Open the in-browser Firefox (**ACCESS > FIREFOX**) and browse to
+   ``http://10.1.10.74/``. It renders the challenge briefly, runs the JS, receives a
+   ``TS*`` cookie, and loads the Hackazon app. Reloading does not re-challenge.
+
+#. **(TMUI)** In **Bot Requests**, find the entry from superjump's source
+   (``10.1.1.8``): **Bot Class: Browser**, **Request Status: Accepted**, **Detected
+   Anomalies: N/A**. The browser also pulls page assets (``/favicon.ico``,
+   ``/fonts/...``, ``/products_pictures/...``) — all **Accepted / Browser** — which a
+   script never does.
+
+   .. figure:: /_static/img/lab3/bot-browser-verified-superjump.png
+      :alt: Real browser from superjump classified Browser and accepted
+      :width: 95%
+
+      superjump's real browser solves the challenge → Browser (verified); app and assets accepted.
+
+**The lesson.** Identical requests, opposite outcomes: the JS challenge is
+transparent to a real browser and an impassable gate to a script. Passing the
+challenge is necessary but not sufficient — Proactive Bot Defense also applies
+browser-integrity and signature checks, so a JS-capable automation (a scripted
+headless browser) can still be flagged as **Suspicious Browser**. Demonstrating
+that live needs a modern headless engine this lab image cannot run (see the note
+above).
+
+Replay test — cross-source cookie binding
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A solved ``TS*`` cookie is signed and time-stamped (it cannot be forged or
+altered), but whether it can be **replayed** from another client depends on how
+strictly the deployment binds it (source IP, User-Agent, TLS fingerprint) and its
+TTL. Capture a real cookie from superjump, then replay it from kali.
+
+#. **(superjump)** After Part B loads the app, open **DevTools > Storage/Application
+   > Cookies** for ``http://10.1.10.74`` and copy the ``TS*`` cookie name and value.
+
+#. **(kali)** Replay that superjump-earned cookie from two kali sources (kali is a
+   *different host* than the solver)::
+
+      TS='TSPD_101=<paste-the-value>'
+      curl -s -o /dev/null -w 'kali .100: %{http_code}\n' -A 'Mozilla/5.0' --cookie "$TS" --interface 10.1.10.100 http://10.1.10.74/
+      curl -s -o /dev/null -w 'kali .200: %{http_code}\n' -A 'Mozilla/5.0' --cookie "$TS" --interface 10.1.10.200 http://10.1.10.74/
+
+   Interpret (cross-check in **Bot Requests**):
+
+   - **both challenged/blocked** → the cookie is bound to the solver's source and/or
+     fingerprint — it is **not replayable** to another host.
+   - **either passes** → the cookie is **replayable** to a different host within its
+     TTL (the classic scraper reuse).
+
+   (The automated ``bot-cookie-replay.sh`` solves and replays in one step, but it
+   needs a modern headless browser — so on this image use the manual capture above.)
+
+This is why F5 layers Device ID+, browser-integrity checks, and Distributed Cloud
+Bot Defense (whose telemetry is IP/browser-bound with **no** reusable token) on top
+of the challenge cookie.
 
 Questions
 ~~~~~~~~~
@@ -668,10 +701,11 @@ Questions
 - The Signature Exception in Step 3 disables ``lab-scraper`` globally. How would
   you instead except *only* a trusted URL or source IP while still blocking that
   user-agent everywhere else?
-- The headless Firefox in Task 7 solved the JS challenge and earned a cookie. Why
-  is passing the challenge *not* enough to treat it as a legitimate user, and what
-  additional Bot Defense signals still distinguish it from a real browser?
-- In the replay test, the same ``TSPD_101`` cookie is sent from kali's primary IP
-  and bound to ``10.1.10.200``. What does each outcome — same passes / alt
-  challenged, both pass, both challenged — tell you about how the cookie is bound,
-  and why does F5 prefer IP/fingerprint binding over a freely replayable token?
+- A real browser (superjump) solved the JS challenge and earned a cookie, while
+  kali automation could not. Why is passing the challenge *not* sufficient on its
+  own, and what additional Bot Defense signals would still distinguish a scripted
+  headless browser from a real one?
+- In the replay test, a cookie earned by the real browser (superjump) is replayed
+  from kali. What does each outcome — challenged vs. passed — tell you about how the
+  cookie is bound, and why does F5 prefer IP/fingerprint binding over a freely
+  replayable token?
