@@ -60,9 +60,9 @@ Task 2: Create the TPS-Based DoS Profile
       * - Condition
         - Value
       * - Relative Threshold — TPS increased by
-        - 500% **and** reached at least 10 TPS
+        - 500% **and** reached at least 2 TPS
       * - Absolute Threshold — TPS reached
-        - 20 TPS
+        - 5 TPS
 
    Under **Select mitigation methods to use on the attacking IP's**, tick
    **Request Blocking → Block All**.
@@ -71,12 +71,12 @@ Task 2: Create the TPS-Based DoS Profile
 
       **Set the absolute threshold below the rate one attack client actually
       reaches on your backend.** A single ``ab`` client through the slow lab
-      Hackazon is sampled by the DoS engine at only ~20 TPS, so the default
+      Hackazon is sampled by the DoS engine at only ~6–20 TPS, so the default
       absolute threshold of **200** never trips — nothing is detected and the
-      event log stays empty. **20** works here; lower it further if your flood
-      can't reach it, or raise it on a faster backend. Also, the relative
-      **"reached at least"** value must be **≤** the absolute threshold (TMOS
-      rejects *min > max*), which is why it is **10** here, not 40.
+      event log stays empty. **5** reliably trips here even when the backend is
+      cold; raise it on a faster backend. Also, the relative **"reached at least"**
+      value must be **≤** the absolute threshold (TMOS rejects *min > max*), which
+      is why it is **2** here, not 40.
 
 #. *(CLI equivalent)* the same settings via ``tmsh`` — note the exact 17.5 field
    names, and that **``ip-rate-limiting enabled``** is the "By Source IP" toggle::
@@ -84,8 +84,8 @@ Task 2: Create the TPS-Based DoS Profile
       tmsh modify security dos profile lab-dos-tps application modify { lab-dos-tps { \
           tps-based { \
               ip-rate-limiting enabled \
-              ip-maximum-tps 20 \
-              ip-minimum-tps 10 \
+              ip-maximum-tps 5 \
+              ip-minimum-tps 2 \
               ip-tps-increase-rate 500 \
               ip-request-blocking-mode block-all } } }
       tmsh save sys config
@@ -190,6 +190,10 @@ Task 4: Generate Attack Traffic and Observe Blocking
         - The rate fell and stayed below the threshold past the **de-escalation
           period** (60 s), so the engine cleared the attack — same Attack ID,
           closing the episode.
+
+   (The TPS figures above are from a capture taken with the absolute threshold at
+   **20**; with the lab default of **5** you'll see proportionally smaller numbers
+   — the columns and their meaning are unchanged.)
 
    Read it as **detect (started) → identify + throttle the offending entity
    (suspicious entity) → recover when traffic subsides (ended)**, all under one
