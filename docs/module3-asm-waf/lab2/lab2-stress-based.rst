@@ -82,14 +82,22 @@ puts the shared profile back.
 
 #. Click **Finished**.
 
-   **(CLI equivalent)** — create the profile and its Application Security container;
-   configure the stress-based specifics in the UI above, then capture the exact
-   17.5 keywords for your build before scripting them::
+   **(CLI equivalent)** — create the profile, add its Application Security
+   container, and arm the By Source IP stress tier. Set **Operation Mode** =
+   Blocking and **Thresholds Mode** = Automatic in the UI (step above); the tier
+   specifics below are the verified 17.5 keywords. Paste the ``modify`` as a
+   **single line** — tmsh rejects multi-line brace blocks::
 
       tmsh create security dos profile lab-dos-stress
       tmsh modify security dos profile lab-dos-stress application add { lab-dos-stress { } }
-      tmsh list security dos profile lab-dos-stress application | grep -A25 stress-based
+      tmsh modify security dos profile lab-dos-stress application modify { lab-dos-stress { stress-based { ip-rate-limiting enabled ip-client-side-defense enabled ip-request-blocking-mode block-all escalation-period 15 de-escalation-period 30 } } }
       tmsh save sys config
+
+   Confirm the tier is armed — ``ip-rate-limiting enabled`` is the By Source IP
+   toggle; if it is ``disabled`` nothing is evaluated and the attack is never
+   mitigated::
+
+      tmsh list security dos profile lab-dos-stress application | grep -A80 "stress-based {" | grep -E "^ *ip-"
 
 #. **Switch the virtual server to the new profile.** Navigate to **Local Traffic >
    Virtual Servers > vs-lab-dos > Security > Policies**. Set **DoS Protection
@@ -158,12 +166,14 @@ Task 3: Simulate a Slow Server Under Attack
 
 #. Observe in **Security > Reporting > DoS > Dashboard** (Real Time: ON):
 
-   - **Virtual Servers Health** for ``vs-lab-dos`` degrades as **Server Latency**
-     climbs above baseline
-   - an attack appears in the **Attacks** table (Vector: Application, a stress
-     trigger)
-   - the attacking sources show in the right-rail **Transaction Origins** /
-     **Client IP Addresses** panels and are being throttled
+   - under **Virtual Servers**, ``vs-lab-dos`` shows **Server Latency** climbing
+     above baseline with **1** attacking IP (Health stays *Good* — the box throttles
+     the attacker rather than falling over)
+   - the **Attacks** table lists the episode(s) with **Vector: Application**,
+     **Trigger: Source IP**, **Mitigation: Block** on ``/Common/vs-lab-dos``. As the
+     attack persists the severity rises from **Low** to **High**, and the escalated
+     (Block All) episode shows thousands of **Blocked Transactions**; the lower
+     **Low** rows with 0 blocked are the earlier CSID phase / de-escalated episodes
 
 #. **Watch the mitigation escalate.** In **Security > Event Logs > DoS >
    Application Events**, follow the episode for the attacking source: the first
@@ -177,8 +187,38 @@ Task 3: Simulate a Slow Server Under Attack
       Stress thresholds are automatic and need the Task 2 baseline first; exact
       escalation timing varies with how fast the backend stress is sampled. If you
       don't see the step-up, extend the flood and confirm the Escalation Period is
-      15 s. (This lab is not yet live-validated — confirm the escalation sequence on
-      your build and adjust the periods to taste.)
+      15 s, and that the baseline learning period (Task 2) ran first.
+
+.. admonition:: What indicates stress-based detection
+
+   Stress-based detection is distinguished by *why* an episode fires, not merely
+   that traffic was mitigated. The tells, all visible in this run:
+
+   - **It keys on server health, not request rate.** An episode is declared only
+     when **Server Latency** (or error rate) rises above the learned baseline — the
+     DoS Dashboard's *Virtual Servers → Server Latency* for ``vs-lab-dos`` climbing
+     above normal is the trigger. **TPS-based detection is disabled** in this
+     profile, so request volume alone mitigates nothing; the backend has to actually
+     be stressed.
+   - **Cause and effect with the backend.** It is the ``--cpus=0.1`` throttle that
+     makes the attack register. Restore the CPU (``docker update --cpus=0``) with the
+     *same* flood still running and latency returns to baseline — the episode
+     **de-escalates** even though the clients never slowed down. That dependence on
+     server stress (not on client rate) is the defining signature; the same flood
+     against a healthy, full-CPU backend may not trigger at all.
+   - **Automatic, learned thresholds.** Thresholds Mode is **Automatic** — there is
+     no manual TPS number; the system compares live latency to what it learned during
+     the Task 2 baseline. No baseline ⇒ no "normal" to deviate from ⇒ no detection,
+     which is why the learning run is mandatory.
+   - **Targeted, proportional mitigation.** Only the sources *contributing to the
+     stress* are acted on, and only *while* the server is stressed: the attacker's IP
+     is throttled then blocked (thousands of **Blocked Transactions**) while a
+     low-rate client on another IP (superjump's Firefox) still gets **200** responses and VS
+     Health stays *Good*. A pure rate limiter acts on rate regardless of whether the
+     server is actually hurting.
+   - **In the Attacks table**, the episode reads **Vector: Application** with
+     **Trigger: Source IP** and a *latency-driven* start — contrast a TPS episode,
+     which starts the instant a rate threshold is crossed, stressed or not.
 
 Task 4: Verify Proportional Throttling (attacker throttled, others served)
 --------------------------------------------------------------------------
