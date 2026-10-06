@@ -31,51 +31,66 @@ legitimate heavy users.
      - Limited
      - Yes
 
-Task 1: Switch the Shared Profile to Stress-Based Detection
------------------------------------------------------------
+Task 1: Create a Stress-Based DoS Profile and Switch the Virtual Server to It
+-----------------------------------------------------------------------------
 
-This lab reuses the **shared ``lab-dos-tps`` profile** from Lab 1 — already
-attached to ``vs-lab-dos`` with the ``L7-DOS_BOT_Logger`` log profile. You change
-which detection mode is active: quiet Lab 1's per-IP TPS rule, and turn on
-stress-based detection.
+Rather than reuse Lab 1's profile, build a **dedicated** stress-based profile from
+scratch and switch ``vs-lab-dos`` to it. A virtual server carries **one** DoS
+profile at a time, so attaching ``lab-dos-stress`` replaces ``lab-dos-tps``; Task 5
+puts the shared profile back.
 
-#. Navigate to **Security > DoS Protection > Protection Profiles**, open
-   ``lab-dos-tps``, and select **Application Security**.
+#. **(TMUI)** Navigate to **Security > DoS Protection > Protection Profiles** and
+   click **Create**. Set **Name** = ``lab-dos-stress``.
 
-#. In **TPS-based Detection**, **disable By Source IP** so Lab 1's per-IP rate
-   rule stays quiet during this lab. **(CLI)**::
-
-      tmsh modify security dos profile lab-dos-tps application modify { lab-dos-tps { \
-          tps-based { ip-rate-limiting disabled } } }
-
-#. Open **Behavioral & Stress-based (D)DoS Detection** and set **Operation Mode**
-   = **Blocking** and **Thresholds Mode** = **Automatic**. Stress-based uses
-   *auto-calculated* thresholds — the system learns normal server stress, so there
-   is no manual latency %% to enter.
+#. Under **Application Security**, open **Behavioral & Stress-based (D)DoS
+   Detection** and set **Operation Mode** = **Blocking** and **Thresholds Mode** =
+   **Automatic**. Stress-based uses *auto-calculated* thresholds — the system learns
+   normal server stress, so there is no manual latency %% to enter. Leave
+   **TPS-based Detection** disabled: this profile detects by **server stress**, not
+   raw request rate.
 
 #. Under **Stress-based Detection and Mitigation → By Source IP**, tick a
    mitigation to apply when a source drives server stress — **Request Blocking**
    (optionally **Client Side Integrity Defense** / **CAPTCHA Challenge**).
 
-#. *(Behavioral engine)* Under **Behavioral Detection and Mitigation → By Bad
-   Actors Behavior / Signatures**, **Bad actors behavior detection** and **Request
-   signatures detection** are the ML layer; the **Mitigation** dropdown
-   (Transparent → Conservative → Standard → Aggressive protection) sets how hard it
-   acts. Leave the default for this lab.
+#. *(Behavioral engine)* Under **Behavioral Detection and Mitigation**, **Bad
+   actors behavior detection** and **Request signatures detection** are the ML
+   layer; the **Mitigation** dropdown (Transparent → Conservative → Standard →
+   Aggressive protection) sets how hard it acts. Leave the default for this lab.
 
 #. **Prevention Duration** controls ramp-up/down: **Escalation Period** (time at
    each mitigation step) and **De-escalation Period** (how long stress must stay
    normal before relaxing) — defaults here are 120 s / 7200 s.
 
+#. Click **Finished**.
+
+   **(CLI equivalent)** — create the profile and its Application Security container;
+   configure the stress/behavioral specifics in the UI above, then capture the exact
+   17.5 keywords for your build before scripting them::
+
+      tmsh create security dos profile lab-dos-stress
+      tmsh modify security dos profile lab-dos-stress application add { lab-dos-stress { } }
+      tmsh list security dos profile lab-dos-stress application | grep -A25 -E "behavioral|stress-based"
+      tmsh save sys config
+
+#. **Switch the virtual server to the new profile.** Navigate to **Local Traffic >
+   Virtual Servers > vs-lab-dos > Security > Policies**. Set **DoS Protection
+   Profile** = **Enabled** and select ``lab-dos-stress`` (this replaces
+   ``lab-dos-tps``). Ensure **Log Profile** = **Enabled** with ``L7-DOS_BOT_Logger``
+   in **Selected**, then **Update**.
+
+   **(CLI)** — a VS holds one DoS profile, so remove the TPS profile before adding
+   the stress profile; run the adds on separate lines::
+
+      tmsh modify ltm virtual vs-lab-dos profiles delete { lab-dos-tps }
+      tmsh modify ltm virtual vs-lab-dos profiles add { lab-dos-stress }
+      tmsh modify ltm virtual vs-lab-dos security-log-profiles add { L7-DOS_BOT_Logger }
+      tmsh list ltm virtual vs-lab-dos profiles security-log-profiles
+
    .. note::
 
       Automatic (stress) thresholds need a **learning period** of normal traffic
-      before they are effective — run the baseline (Task 2) first. Capture the live
-      settings to confirm the exact keywords for your build::
-
-         tmsh list security dos profile lab-dos-tps application | grep -A25 stress-based
-
-#. Click **Update**.
+      before they are effective — run the baseline (Task 2) first.
 
 Task 2: Establish a Latency Baseline
 --------------------------------------
@@ -167,11 +182,17 @@ Task 5: Clean Up
 #. Verify server response times return to baseline in **Security > Reporting >
    DoS > Dashboard**.
 
-#. Restore the shared profile for later labs — re-enable By Source IP TPS
-   detection if you want Lab 1 behaviour back::
+#. **Switch the virtual server back to the shared profile** for later labs —
+   detach ``lab-dos-stress`` and reattach ``lab-dos-tps`` (TMUI: *vs-lab-dos >
+   Security > Policies*, set **DoS Protection Profile** back to ``lab-dos-tps``)::
 
-      tmsh modify security dos profile lab-dos-tps application modify { lab-dos-tps { \
-          tps-based { ip-rate-limiting enabled } } }
+      tmsh modify ltm virtual vs-lab-dos profiles delete { lab-dos-stress }
+      tmsh modify ltm virtual vs-lab-dos profiles add { lab-dos-tps }
+      tmsh save sys config
+
+   *(Optional)* delete the stress profile if you won't reuse it::
+
+      tmsh delete security dos profile lab-dos-stress
 
 Questions
 ~~~~~~~~~
