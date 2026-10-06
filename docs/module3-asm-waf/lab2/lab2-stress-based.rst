@@ -47,7 +47,9 @@ puts the shared profile back.
    **Automatic**. Stress-based uses *auto-calculated* thresholds — the system learns
    normal server stress, so there is no manual latency %% to enter. Leave
    **TPS-based Detection** disabled: this profile detects by **server stress**, not
-   raw request rate.
+   raw request rate. Configure only the **Stress-based** settings in this panel for
+   this lab — the Behavioral/ML engine (bad-actor behavior, request signatures) is
+   covered in Lab 3.
 
 #. Under **Stress-based Detection and Mitigation → By Source IP**, enable a
    **two-step mitigation ladder** so you can watch mitigation *escalate* as the
@@ -62,11 +64,6 @@ puts the shared profile back.
       (the curl/ab flood) cannot satisfy it and is dropped at that step; as the
       flood keeps server stress high, mitigation then escalates to **Block All** —
       the step-up you observe in Task 3.
-
-#. *(Behavioral engine)* Under **Behavioral Detection and Mitigation**, **Bad
-   actors behavior detection** and **Request signatures detection** are the ML
-   layer; the **Mitigation** dropdown (Transparent → Conservative → Standard →
-   Aggressive protection) sets how hard it acts. Leave the default for this lab.
 
 #. **Prevention Duration** drives the escalation timing. The stress defaults are
    long — Escalation 120 s / **De-escalation 7200 s (two hours)** — so mitigation
@@ -86,12 +83,12 @@ puts the shared profile back.
 #. Click **Finished**.
 
    **(CLI equivalent)** — create the profile and its Application Security container;
-   configure the stress/behavioral specifics in the UI above, then capture the exact
+   configure the stress-based specifics in the UI above, then capture the exact
    17.5 keywords for your build before scripting them::
 
       tmsh create security dos profile lab-dos-stress
       tmsh modify security dos profile lab-dos-stress application add { lab-dos-stress { } }
-      tmsh list security dos profile lab-dos-stress application | grep -A25 -E "behavioral|stress-based"
+      tmsh list security dos profile lab-dos-stress application | grep -A25 stress-based
       tmsh save sys config
 
 #. **Switch the virtual server to the new profile.** Navigate to **Local Traffic >
