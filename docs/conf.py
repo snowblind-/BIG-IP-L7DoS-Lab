@@ -48,8 +48,11 @@ try:
     _keep_together_style = GroupedFlowablesStyle(same_page=True)
     _orig_litblock_build = _rinoh_rst_nodes.Literal_Block.build_flowable
     def _litblock_keep_together(self):
-        return StaticGroupedFlowables([_orig_litblock_build(self)],
-                                      style=_keep_together_style)
+        inner = _orig_litblock_build(self)
+        text = getattr(self, 'text', '') or ''
+        if text.count('\n') <= 45:
+            return StaticGroupedFlowables([inner], style=_keep_together_style)
+        return inner
     _rinoh_rst_nodes.Literal_Block.build_flowable = _litblock_keep_together
 except Exception:
     pass

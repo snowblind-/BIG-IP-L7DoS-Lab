@@ -241,6 +241,11 @@ match whatever hosts you drive traffic from (e.g. win-client + the
 ``C:\lab\baseline-traffic.ps1`` baseline, or kali's two addresses as the
 prebuilt demo does).
 
+The ``xff-traffic-shaping`` iRule:
+
+.. literalinclude:: ../../../configs/irules/xff-traffic-shaping.tcl
+   :language: tcl
+
 Questions
 ~~~~~~~~~
 

@@ -24,6 +24,9 @@ Task 1: Upload and Attach the iRule
 #. Paste the contents of ``configs/irules/rate-limit-per-uri.tcl`` into the
    **Definition** field.
 
+   .. literalinclude:: ../../../configs/irules/rate-limit-per-uri.tcl
+      :language: tcl
+
    The default protected URIs and thresholds are:
 
    .. list-table::

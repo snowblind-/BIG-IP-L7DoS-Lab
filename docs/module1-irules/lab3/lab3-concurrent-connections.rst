@@ -23,6 +23,9 @@ Task 1: Upload and Attach the iRule
 #. Paste the contents of ``configs/irules/concurrent-conn-limit.tcl`` into
    the **Definition** field.
 
+   .. literalinclude:: ../../../configs/irules/concurrent-conn-limit.tcl
+      :language: tcl
+
    Key parameters:
 
    .. list-table::

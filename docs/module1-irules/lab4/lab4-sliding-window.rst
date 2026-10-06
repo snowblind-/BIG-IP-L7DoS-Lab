@@ -49,6 +49,9 @@ Task 1: Upload and Attach the iRule
 #. Paste the contents of ``configs/irules/sliding-window-429.tcl`` into the
    **Definition** field.
 
+   .. literalinclude:: ../../../configs/irules/sliding-window-429.tcl
+      :language: tcl
+
    Key parameters:
 
    .. list-table::

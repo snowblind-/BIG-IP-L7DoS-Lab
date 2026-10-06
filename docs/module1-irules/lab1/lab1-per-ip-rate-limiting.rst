@@ -20,30 +20,8 @@ Task 1: Upload and Attach the iRule
 #. Paste the contents of ``configs/irules/rate-limit-per-ip.tcl`` into the
    **Definition** field.
 
-   .. code-block:: tcl
-
-      when RULE_INIT {
-          set static::rl_threshold 100
-          set static::rl_window    1
-      }
-
-      when HTTP_REQUEST {
-          set client [IP::client_addr]
-          set key    "rl_ip_[string map {: _} $client]"
-
-          set count [table incr $key]
-
-          if { $count == 1 } {
-              table set $key $count $static::rl_window $static::rl_window
-          }
-
-          if { $count > $static::rl_threshold } {
-              HTTP::respond 429 content "Rate limit exceeded. Try again later." \
-                  "Content-Type" "text/plain" \
-                  "Retry-After"  $static::rl_window
-              return
-          }
-      }
+   .. literalinclude:: ../../../configs/irules/rate-limit-per-ip.tcl
+      :language: tcl
 
 #. Click **Finished**.
 

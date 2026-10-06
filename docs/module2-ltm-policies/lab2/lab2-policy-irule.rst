@@ -29,6 +29,9 @@ Task 1: Upload the iRule
 #. Paste the contents of ``configs/irules/policy-triggered-rate-limit.tcl``
    into the **Definition** field.
 
+   .. literalinclude:: ../../../configs/irules/policy-triggered-rate-limit.tcl
+      :language: tcl
+
    Threshold profiles defined in the iRule:
 
    .. list-table::

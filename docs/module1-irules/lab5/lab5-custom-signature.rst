@@ -92,6 +92,9 @@ Task 2: Deploy and attach the iRule
    Paste the contents of ``custom-l7dos-signature.tcl`` (or merge it from a
    file), then save.
 
+   .. literalinclude:: ../../../configs/irules/custom-l7dos-signature.tcl
+      :language: tcl
+
 #. Attach it to the lab virtual server::
 
       tmsh modify ltm virtual vs-lab-irules rules { custom-l7dos-signature }
