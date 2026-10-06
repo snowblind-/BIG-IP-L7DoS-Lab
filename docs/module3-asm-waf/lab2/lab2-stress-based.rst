@@ -49,18 +49,32 @@ puts the shared profile back.
    **TPS-based Detection** disabled: this profile detects by **server stress**, not
    raw request rate.
 
-#. Under **Stress-based Detection and Mitigation → By Source IP**, tick a
-   mitigation to apply when a source drives server stress — **Request Blocking**
-   (optionally **Client Side Integrity Defense** / **CAPTCHA Challenge**).
+#. Under **Stress-based Detection and Mitigation → By Source IP**, enable a
+   **two-step mitigation ladder** so you can watch mitigation *escalate* as the
+   attack persists: tick **Client Side Integrity Defense** (the gentler first step)
+   **and** **Request Blocking → Block All** (the harder second step). BIG-IP applies
+   the mildest enabled method first and escalates to the next after the Escalation
+   Period if the source keeps driving stress.
+
+   .. note::
+
+      Client Side Integrity Defense is a JavaScript challenge, so a non-JS client
+      (the curl/ab flood) cannot satisfy it and is dropped at that step; as the
+      flood keeps server stress high, mitigation then escalates to **Block All** —
+      the step-up you observe in Task 3.
 
 #. *(Behavioral engine)* Under **Behavioral Detection and Mitigation**, **Bad
    actors behavior detection** and **Request signatures detection** are the ML
    layer; the **Mitigation** dropdown (Transparent → Conservative → Standard →
    Aggressive protection) sets how hard it acts. Leave the default for this lab.
 
-#. **Prevention Duration** controls ramp-up/down: **Escalation Period** (time at
-   each mitigation step) and **De-escalation Period** (how long stress must stay
-   normal before relaxing) — defaults here are 120 s / 7200 s.
+#. **Prevention Duration** drives the escalation timing. Set a **short Escalation
+   Period** so the step-up is visible within the lab — **Escalation Period = 30 s**
+   (how long mitigation stays at each step before escalating) — and leave the
+   **De-escalation Period** at its default (how long stress must stay normal before
+   mitigation relaxes). With a 30 s escalation period the mitigation steps from
+   Client Side Integrity Defense to Block All about half a minute into a sustained
+   attack.
 
 #. Click **Finished**.
 
@@ -133,7 +147,10 @@ Task 3: Simulate a Slow Server Under Attack
 
 #. From the attack client, generate a high-concurrency load::
 
-      bash /home/ec2-user/lab/scripts/attack/http-flood.sh http://10.1.10.63 60 80
+      bash /home/ec2-user/lab/scripts/attack/http-flood.sh http://10.1.10.63 120 80
+
+   Run it long enough (here 120 s) to outlast the 30 s Escalation Period so the
+   mitigation has time to step up.
 
 #. Observe in **Security > Reporting > DoS > Dashboard** (Real Time: ON):
 
@@ -143,6 +160,21 @@ Task 3: Simulate a Slow Server Under Attack
      trigger)
    - the attacking sources show in the right-rail **Transaction Origins** /
      **Client IP Addresses** panels and are being throttled
+
+#. **Watch the mitigation escalate.** In **Security > Event Logs > DoS >
+   Application Events**, follow the episode for the attacking source: the first
+   events show **Client Side Integrity Defense** applied, and after ~30 s of
+   continued stress (the Escalation Period) the mitigation **escalates to Block
+   All**. When the flood stops and latency returns to normal, the De-escalation
+   Period later relaxes mitigation — the step down is logged too.
+
+   .. note::
+
+      Stress thresholds are automatic and need the Task 2 baseline first; exact
+      escalation timing varies with how fast the backend stress is sampled. If you
+      don't see the step-up, extend the flood and confirm the Escalation Period is
+      30 s. (This lab is not yet live-validated — confirm the escalation sequence on
+      your build and adjust the periods to taste.)
 
 Task 4: Verify Proportional Throttling (attacker throttled, others served)
 --------------------------------------------------------------------------
