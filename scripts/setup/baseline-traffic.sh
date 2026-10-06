@@ -10,6 +10,8 @@ TARGET="${1:-http://10.1.10.63}"
 DURATION="${2:-600}"   # seconds (default: 10 min)
 CONCURRENCY=5
 RPS=20
+# fractional seconds between batches, computed with awk (no bc dependency)
+INTERVAL=$(awk "BEGIN{printf \"%.3f\", 1/$RPS}")
 
 echo "Generating baseline traffic to $TARGET for ${DURATION}s"
 echo "Concurrency: $CONCURRENCY | ~${RPS} req/s"
@@ -36,7 +38,7 @@ while [ $SECONDS -lt $end ]; do
     count=$(( count + 1 ))
     if (( count % CONCURRENCY == 0 )); then
         wait
-        sleep $(echo "scale=3; 1/$RPS" | bc)
+        sleep "$INTERVAL"
     fi
 done
 
