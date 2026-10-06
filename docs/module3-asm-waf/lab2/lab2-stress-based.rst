@@ -68,13 +68,20 @@ puts the shared profile back.
    layer; the **Mitigation** dropdown (Transparent → Conservative → Standard →
    Aggressive protection) sets how hard it acts. Leave the default for this lab.
 
-#. **Prevention Duration** drives the escalation timing. Set a **short Escalation
-   Period** so the step-up is visible within the lab — **Escalation Period = 30 s**
-   (how long mitigation stays at each step before escalating) — and leave the
-   **De-escalation Period** at its default (how long stress must stay normal before
-   mitigation relaxes). With a 30 s escalation period the mitigation steps from
-   Client Side Integrity Defense to Block All about half a minute into a sustained
-   attack.
+#. **Prevention Duration** drives the escalation timing. The stress defaults are
+   long — Escalation 120 s / **De-escalation 7200 s (two hours)** — so mitigation
+   would never relax in lab time. Shorten **both** so the full cycle is visible:
+   **Escalation Period = 15 s** (how long mitigation stays at each step before
+   escalating) and **De-escalation Period = 30 s** (how long stress must stay normal
+   before mitigation relaxes). With these, mitigation steps from Client Side
+   Integrity Defense to Block All about 15 s into a sustained attack, and relaxes
+   ~30 s after it stops.
+
+   .. note::
+
+      Short periods make the demo snappy but can cause **flapping** (mitigation
+      toggling on/off) when real traffic hovers near the threshold — use longer
+      values in production.
 
 #. Click **Finished**.
 
@@ -147,10 +154,10 @@ Task 3: Simulate a Slow Server Under Attack
 
 #. From the attack client, generate a high-concurrency load::
 
-      bash /home/ec2-user/lab/scripts/attack/http-flood.sh http://10.1.10.63 120 80
+      bash /home/ec2-user/lab/scripts/attack/http-flood.sh http://10.1.10.63 90 80
 
-   Run it long enough (here 120 s) to outlast the 30 s Escalation Period so the
-   mitigation has time to step up.
+   Run it long enough (here 90 s) to outlast the 15 s Escalation Period so the
+   mitigation steps up — then let it stop so you can watch the ~30 s de-escalation.
 
 #. Observe in **Security > Reporting > DoS > Dashboard** (Real Time: ON):
 
@@ -163,17 +170,17 @@ Task 3: Simulate a Slow Server Under Attack
 
 #. **Watch the mitigation escalate.** In **Security > Event Logs > DoS >
    Application Events**, follow the episode for the attacking source: the first
-   events show **Client Side Integrity Defense** applied, and after ~30 s of
+   events show **Client Side Integrity Defense** applied, and after ~15 s of
    continued stress (the Escalation Period) the mitigation **escalates to Block
-   All**. When the flood stops and latency returns to normal, the De-escalation
-   Period later relaxes mitigation — the step down is logged too.
+   All**. About 30 s after the flood stops and latency returns to normal, the
+   De-escalation Period relaxes mitigation — the step down is logged too.
 
    .. note::
 
       Stress thresholds are automatic and need the Task 2 baseline first; exact
       escalation timing varies with how fast the backend stress is sampled. If you
       don't see the step-up, extend the flood and confirm the Escalation Period is
-      30 s. (This lab is not yet live-validated — confirm the escalation sequence on
+      15 s. (This lab is not yet live-validated — confirm the escalation sequence on
       your build and adjust the periods to taste.)
 
 Task 4: Verify Proportional Throttling (attacker throttled, others served)
