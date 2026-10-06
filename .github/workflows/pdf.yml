@@ -1,0 +1,48 @@
+name: Build Lab Guide PDF
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'requirements.txt'
+      - '.github/workflows/pdf.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pdf-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pdf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build the combined PDF
+        run: |
+          sphinx-build -b rinoh docs docs/_build/rinoh
+          cp docs/_build/rinoh/BIG-IP-L7DoS-Lab-Guide.pdf BIG-IP-L7DoS-Lab-Guide.pdf
+
+      - name: Commit the regenerated PDF
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add BIG-IP-L7DoS-Lab-Guide.pdf
+          if git diff --cached --quiet; then
+            echo "PDF unchanged - nothing to commit."
+          else
+            git commit -m "docs: rebuild lab guide PDF [skip ci]"
+            git push
+          fi
