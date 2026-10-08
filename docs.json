@@ -24,7 +24,39 @@
           {
             "group": "Module 1 — iRules",
             "pages": [
-              "mint/module1-irules/lab1-per-ip-rate-limiting"
+              "mint/module1-irules/index",
+              "mint/module1-irules/lab1-per-ip-rate-limiting",
+              "mint/module1-irules/lab2-per-uri-rate-limiting",
+              "mint/module1-irules/lab3-concurrent-connections",
+              "mint/module1-irules/lab4-sliding-window",
+              "mint/module1-irules/lab5-custom-signature"
+            ]
+          },
+          {
+            "group": "Module 2 — LTM Policies",
+            "pages": [
+              "mint/module2-ltm-policies/index",
+              "mint/module2-ltm-policies/lab1-rate-filter",
+              "mint/module2-ltm-policies/lab2-policy-irule",
+              "mint/module2-ltm-policies/lab3-datagroup",
+              "mint/module2-ltm-policies/lab4-reject-bad-paths"
+            ]
+          },
+          {
+            "group": "Module 3 — ASM / Advanced WAF",
+            "pages": [
+              "mint/module3-asm-waf/index",
+              "mint/module3-asm-waf/lab1-tps-based",
+              "mint/module3-asm-waf/lab2-stress-based",
+              "mint/module3-asm-waf/lab3-behavioral-dos",
+              "mint/module3-asm-waf/lab4-persistent-signatures",
+              "mint/module3-asm-waf/lab5-bot-defense"
+            ]
+          },
+          {
+            "group": "Instructor",
+            "pages": [
+              "mint/answer-key"
             ]
           }
         ]

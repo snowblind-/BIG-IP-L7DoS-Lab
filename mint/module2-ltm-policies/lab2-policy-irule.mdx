@@ -1,0 +1,199 @@
+---
+title: "Lab 2: Policy-Triggered iRule Event Rate Limiting"
+---
+
+This lab separates **path classification** (handled by the LTM policy) from
+**rate enforcement** (handled by a single shared iRule). The policy inserts an
+`X-RateLimit-Profile` header identifying which tier applies to each request;
+the iRule reads that header and enforces the corresponding threshold.
+
+This design means:
+
+- Adding a new protected path = policy edit only (no iRule change)
+- Changing a rate limit threshold = iRule edit only (no policy change)
+
+<Note>
+  This lab must exceed a per-second rate threshold. Ensure the Hackazon container
+  is at **full CPU** first — from the Hackazon Web Shell (`10.1.1.5`),
+  `docker update --cpus=0 <hackazon-container>`. A CPU-limited backend caps
+  `ab` below the threshold so nothing is rejected. See
+  /setup/lab-topology (*Backend CPU state*).
+</Note>
+
+### Task 1: Upload the iRule
+
+1. Navigate to **Local Traffic > iRules > iRule List** and click **Create**.
+2. Set the **Name** to `policy-triggered-rate-limit`.
+3. Paste the contents of `configs/irules/policy-triggered-rate-limit.tcl`
+   into the **Definition** field.
+
+   ```tcl
+   ## policy-triggered-rate-limit.tcl
+   ##
+   ## Works with the LTM policy (path-rate-policy.json or datagroup-rate-policy.json).
+   ## The policy classifies each request by inserting X-RateLimit-Profile header;
+   ## this iRule reads that header and enforces the corresponding threshold.
+   ##
+   ## For Scenario 3.3 (datagroup), the policy sets profile "datagroup" and this
+   ## iRule performs a second datagroup lookup to get the actual profile name.
+   ##
+   ## Profiles and their thresholds (req/s per client IP):
+   ##   strict      — 10 req/s   (login, checkout, password reset)
+   ##   medium      — 50 req/s   (search, general API)
+   ##   permissive  — 200 req/s  (static content, home page)
+   ##   datagroup   — resolved at runtime from rate_limit_paths datagroup
+
+   when RULE_INIT {
+       array set static::rl_thresholds {
+           strict      10
+           medium      50
+           permissive  200
+       }
+       set static::rl_window 1
+   }
+
+   when HTTP_REQUEST {
+       set profile [HTTP::header value "X-RateLimit-Profile"]
+       HTTP::header remove "X-RateLimit-Profile"
+
+       if { $profile eq "" } { return }
+
+       # Scenario 3.3: resolve profile from datagroup by URI prefix
+       if { $profile eq "datagroup" } {
+           set uri [HTTP::uri]
+           set profile [class match -value $uri starts_with rate_limit_paths]
+           if { $profile eq "" } { return }
+       }
+
+       set threshold [lindex [array get static::rl_thresholds $profile] 1]
+       if { $threshold eq "" } { return }
+
+       set client [IP::client_addr]
+       set key    "rl_policy_${profile}_[string map {: _} $client]"
+
+       set count [table incr $key]
+       if { $count == 1 } {
+           table set $key $count $static::rl_window $static::rl_window
+       }
+
+       if { $count > $threshold } {
+           HTTP::respond 429 content "Rate limit exceeded." \
+               "Content-Type"          "text/plain" \
+               "Retry-After"           $static::rl_window \
+               "X-RateLimit-Profile"   $profile \
+               "X-RateLimit-Limit"     $threshold \
+               "X-RateLimit-Remaining" "0"
+       }
+   }
+
+   ```
+
+   Threshold profiles defined in the iRule:
+
+   | Profile | Threshold (req/s) | Intended paths |
+   | --- | --- | --- |
+   | `strict` | 10 | Login, checkout, password reset |
+   | `medium` | 50 | Search, general API |
+   | `permissive` | 200 | Static content, home page |
+4. Click **Finished**.
+
+### Task 2: Create the LTM Policy
+
+1. Navigate to **Local Traffic > Policies > Policy List** and click
+   **Create**.
+2. Configure:
+
+   | Field | Value |
+   | --- | --- |
+   | Name | `path-rate-policy` |
+   | Strategy | `first-match` |
+   | Requires | `http` |
+3. Add the following rules:
+
+   **Rule 1 — strict-paths**
+
+   - Condition: **HTTP URI** | **path** | **begins with** | `/user/login`
+   - Action: **HTTP Header** | **Insert** | Name: `X-RateLimit-Profile` |
+      Value: `strict`
+
+   **Rule 2 — medium-paths**
+
+   - Condition: **HTTP URI** | **path** | **begins with** | `/search`
+   - Action: **HTTP Header** | **Insert** | Name: `X-RateLimit-Profile` |
+      Value: `medium`
+
+   **Rule 3 — default-permissive**
+
+   - Condition: *(none)*
+   - Action: **HTTP Header** | **Insert** | Name: `X-RateLimit-Profile` |
+      Value: `permissive`
+4. Click **Save Draft**, then **Publish**.
+
+### Task 3: Attach Policy and iRule to the Virtual Server
+
+1. Navigate to **Local Traffic > Virtual Servers**, click **vs-lab-ltm**, and
+   select the **Resources** tab.
+2. Under **Policies**, click **Manage** and move `path-rate-policy` to
+   **Enabled**.
+3. Under **iRules**, click **Manage** and move
+   `policy-triggered-rate-limit` to **Enabled**.
+
+   <Warning>
+     The LTM policy must be evaluated **before** the iRule reads the header.
+     BIG-IP evaluates policies before iRules in the `HTTP_REQUEST` event by
+     default — no additional ordering configuration is needed.
+   </Warning>
+4. Click **Finished**.
+
+### Task 4: Test Per-Path Rate Limiting
+
+> (Backend at full CPU — see the note at the top of the lab. Confirm each path is
+> **200** first with `curl -si http://10.1.10.56<path> | head -1`.)
+
+1. Test the **strict** profile on the login page (limit: 10 req/s):
+
+   ```
+   ab -n 400 -c 20 -l http://10.1.10.56/user/login
+   ```
+
+   You should see **429** (`Non-2xx`) once the client exceeds 10 req/s — ~10
+   pass, the rest are rejected.
+2. Test the **medium** profile on search (limit: 50 req/s):
+
+   ```
+   ab -n 400 -c 20 -l http://10.1.10.56/search
+   ```
+
+   Higher throughput is allowed before 429s appear (~50 req/s).
+3. Confirm the **permissive** home page is unaffected at moderate rates:
+
+   ```
+   ab -n 200 -c 20 -l http://10.1.10.56/
+   ```
+
+   Expected result: all **200** at moderate load (well below the 200 req/s
+   permissive limit).
+
+### Task 5: Add a New Protected Path Without Editing the iRule
+
+1. Navigate to **Local Traffic > Policies**, click **path-rate-policy**,
+   and click **Edit Draft** (or create a new draft).
+2. In **Rule 1 (strict-paths)**, add `/search` to the condition values.
+   Because Rule 1 is evaluated **first** (`first-match`), `/search` is now
+   classified **strict** instead of medium.
+3. Click **Save Draft**, then **Publish**.
+4. Verify `/search` now trips at the *strict* threshold (10 req/s) — far sooner
+   than the medium 50 req/s it hit in Task 4:
+
+   ```
+   ab -n 400 -c 20 -l http://10.1.10.56/search
+   ```
+
+   The iRule was not modified — only the policy changed.
+
+#### Questions
+
+- The iRule removes the `X-RateLimit-Profile` header before forwarding to
+   the pool. Why is this important?
+- What happens to requests that match no policy rule and no default rule?
+   How does the iRule handle a missing or empty header?

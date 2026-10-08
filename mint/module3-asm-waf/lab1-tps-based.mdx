@@ -1,0 +1,258 @@
+---
+title: "Lab 1: TPS-Based DoS Protection"
+---
+
+This lab configures explicit **transactions-per-second (TPS)** thresholds in
+an ASM DoS profile. When a source IP or URL exceeds the threshold, BIG-IP
+blocks, challenges, or rate-limits that source until traffic normalizes.
+TPS-based protection is the simplest WAF DoS mode — it requires no learning
+period and triggers on known numeric thresholds.
+
+<Note>
+  This lab must exceed a per-second rate threshold. Ensure the Hackazon container
+  is at **full CPU** first — from the Hackazon Web Shell (`10.1.1.5`),
+  `docker update --cpus=0 <hackazon-container>`. A CPU-limited backend caps
+  `ab` below the threshold so nothing is rejected. See
+  /setup/lab-topology (*Backend CPU state*).
+</Note>
+
+### Task 1: Verify ASM is Provisioned
+
+1. SSH to the BIG-IP:
+
+   ```
+   ssh admin@10.1.1.11
+   ```
+2. Confirm ASM provisioning level is `nominal` or `dedicated`:
+
+   ```
+   tmsh show sys provision asm
+   ```
+
+   Expected output (partial):
+
+   ```
+   Sys::Provision
+   asm   nominal
+   ```
+
+   <Warning>
+     If ASM shows `none`, navigate to **System > Resource Provisioning**
+     in the TMUI and set ASM to **Nominal**. The system will require a reboot.
+   </Warning>
+
+### Task 2: Create the TPS-Based DoS Profile
+
+1. In the TMUI, navigate to **Security > DoS Protection > Protection Profiles**.
+2. Click **Create**.
+3. Set the **Name** to `lab-dos-tps`.
+4. Under **Application Security**, open **TPS-based Detection** and set
+   **Operation Mode** to **Blocking** and **Thresholds Mode** to **Manual**.
+5. Under **How to detect attackers and which mitigation to use**, **enable
+   By Source IP** — this toggle is required. If it stays off, the thresholds are
+   saved but nothing is ever evaluated (a common “why is nothing detected?” trap).
+   An IP is treated as an attacker if *either* condition is met:
+
+   | Condition | Value |
+   | --- | --- |
+   | Relative Threshold — TPS increased by | 500% **and** reached at least 2 TPS |
+   | Absolute Threshold — TPS reached | 5 TPS |
+
+   Under **Select mitigation methods to use on the attacking IP’s**, tick
+   **Request Blocking → Block All**.
+
+   <Warning>
+     **Set the absolute threshold below the rate one attack client actually
+     reaches on your backend.** A single `ab` client through the slow lab
+     Hackazon is sampled by the DoS engine at only ~6–20 TPS, so the default
+     absolute threshold of **200** never trips — nothing is detected and the
+     event log stays empty. **5** reliably trips here even when the backend is
+     cold; raise it on a faster backend. Also, the relative **“reached at least”**
+     value must be **≤** the absolute threshold (TMOS rejects *min > max*), which
+     is why it is **2** here, not 40.
+   </Warning>
+6. *(CLI equivalent)* the same settings via `tmsh` — note the exact 17.5 field
+   names, and that **``ip-rate-limiting enabled``** is the “By Source IP” toggle:
+
+   ```
+   tmsh modify security dos profile lab-dos-tps application modify { lab-dos-tps { \
+       tps-based { \
+           ip-rate-limiting enabled \
+           ip-maximum-tps 5 \
+           ip-minimum-tps 2 \
+           ip-tps-increase-rate 500 \
+           ip-request-blocking-mode block-all } } }
+   tmsh save sys config
+   ```
+7. *(Optional)* expand **By URL** and **Site Wide** to set per-URL and
+   whole-site criteria — the **By Source IP** tier is enough for this lab.
+8. Set the **Prevention Duration** — this controls how mitigation *ramps up* and
+   *winds down*:
+
+   | Setting | Value |
+   | --- | --- |
+   | Escalation Period | 30 seconds |
+   | De-escalation Period | 60 seconds |
+
+   - **Escalation Period** — how long the system stays at each mitigation step
+      before moving to the next, more aggressive one. Mitigation is applied in
+      steps; if the attack persists past this period, BIG-IP escalates (e.g. from
+      a gentler challenge toward outright blocking).
+   - **De-escalation Period** — how long the source/URL must stay *below* the
+      thresholds before mitigation is relaxed and finally removed. A longer value
+      prevents **flapping** (mitigation toggling on/off) when traffic hovers near
+      the threshold; too short and a still-active attack resumes the moment
+      mitigation lifts (see the stress-based de-escalation question in Lab 2).
+9. Leave **Behavioral & Stress-based Detection** disabled for this lab (those are
+   Labs 2 and 3).
+10. Click **Finished**.
+
+### Task 3: Attach the DoS Profile and Log Profile to the Virtual Server
+
+A DoS profile is applied at the **virtual server**, not inside an ASM security
+policy — and it needs a **security log profile**, or nothing reaches the event
+log and the lab looks like it did nothing.
+
+1. Navigate to **Local Traffic > Virtual Servers**, click **vs-lab-dos**, and open
+   the **Security > Policies** tab.
+2. Set **DoS Protection Profile** to **Enabled** and select `lab-dos-tps`.
+3. Set **Log Profile** to **Enabled** and move a DoS log profile into
+   **Selected** — `L7-DOS_BOT_Logger` (or `ASM-Bot-DoS-Log-All`; both log
+   DoS/Bot events). This is what populates *Security > Event Logs > DoS >
+   Application Events*.
+4. Click **Update**.
+
+   Or via CLI (run the two adds on separate lines — chaining them lets a
+   duplicate-profile error abort the log-profile add):
+
+   ```
+   tmsh modify ltm virtual vs-lab-dos profiles add { lab-dos-tps }
+   tmsh modify ltm virtual vs-lab-dos security-log-profiles add { L7-DOS_BOT_Logger }
+   ```
+5. Confirm both are attached:
+
+   ```
+   tmsh list ltm virtual vs-lab-dos profiles security-log-profiles
+   ```
+
+### Task 4: Generate Attack Traffic and Observe Blocking
+
+1. From the attack client, run a sustained high-rate flood (the backend at full
+   CPU — `docker update --cpus=0` — lets `ab` reach a rate that trips the
+   thresholds):
+
+   ```
+   ab -n 50000 -c 100 -t 60 -l http://10.1.10.63/
+   ```
+2. While the flood runs, open **Security > Event Logs > DoS > Application Events**
+   (and **Security > Reporting > DoS > Dashboard** with **Real Time: ON** for the live view). Once the
+   source-IP rate crosses the threshold, the attack lifecycle appears — three
+   event types tied together by one **Attack ID**:
+
+   | Event | TPS | What it means |
+   | --- | --- | --- |
+   | **Attack started** | 20 tps | The profile declared a *DOS L7 attack* — the measured source-IP rate crossed the detection threshold. Mitigation **Source IP-Based Block All** is now in effect for this Attack ID. |
+   | **Suspicious entity** | 17 tps | The per-source attribution. **Entity Type: Source IP / Entity: 10.1.10.100** names the offender. The columns read **TPS 17 / Detection Threshold 20 / Mitigate To 13**, **Threshold Condition: Absolute Manual Threshold** — it fired on the absolute `ip-maximum-tps` you set (20), and rate-limits the entity toward 13. The 20→13 gap is hysteresis that prevents flapping. |
+   | **Attack ended** | 11 tps | The rate fell and stayed below the threshold past the **de-escalation period** (60 s), so the engine cleared the attack — same Attack ID, closing the episode. |
+
+   (The TPS figures above are from a capture taken with the absolute threshold at
+   **20**; with the lab default of **5** you’ll see proportionally smaller numbers
+   — the columns and their meaning are unchanged.)
+
+   Read it as **detect (started) → identify + throttle the offending entity
+   (suspicious entity) → recover when traffic subsides (ended)**, all under one
+   Attack ID. “Suspicious entity” is *not* a separate attack — it is the
+   per-source decision *within* the attack, which is why only that row carries an
+   **Entity**. Unlike the Module 1 iRule labs (whose 429s are `HTTP::respond` in
+   the data path), these are real ASM DoS-profile events, so they show up here in
+   **DoS > Application Events**.
+
+   <Note>
+     Each attack episode is one **Attack ID** with an *Attack started* and an
+     *Attack ended* row; a second flood makes a second Attack ID. In the default
+     list view the **Detection Threshold**, **Mitigate To Threshold**,
+     **Threshold Condition**, and **Entity** columns are blank on the
+     started/ended rows — those populate on the **Suspicious entity** rows (the
+     per-source detail). Click an **Attack ID** to drill into an episode, or widen
+     the time filter, to see the suspicious-entity rows and the offending
+     **Entity** (e.g. `10.1.10.100`).
+   </Note>
+
+### Task 5: Review the DoS Reporting Dashboard
+
+The event log is the per-event record; the **DoS Reporting Dashboard** is the
+aggregate rollup of the same attacks — the view you use to brief on an incident.
+
+1. Navigate to **Security > Reporting > DoS > Dashboard** and set the range to
+   **Last hour** (top-right filter is **HTTP**).
+2. Read the panels for your flood:
+
+   - **DoS Attack IDs** (right rail) — one row per episode (e.g. `3183025548`)
+      with its transaction count, plus a **Not attacked** row for the legitimate /
+      under-threshold traffic. This is the clean split between attack and normal.
+   - **Attacks** table — one row per attack: **Severity** (Low here — a modest lab
+      flood), **Vector: Application**, **Trigger: Source IP Vol.**, the **Virtual
+      Server** (`/Common/vs-lab-dos`), **Mitigation: Blocked**, and **Start/End
+      Time** (one shows *Ongoing* if a flood is still running).
+   - **Virtual Servers Health** — `vs-lab-dos` should read **Good** with its
+      latency and client-connection counts: proof the mitigation kept the VS
+      healthy *during* the attack (the whole point).
+   - **Transaction Origins → Sent by Client** — attributes the attack volume to
+      the client side.
+3. Cross-reference: the **Attack ID** shown here is the same ID as in the event
+   log, so you can pivot from the dashboard’s aggregate view to the per-event
+   detail and back.
+
+### Task 6: Validate Per-Source Mitigation (attacker blocked, others served)
+
+**Block All** mitigation is scoped to the **offending source IP** — the attacker
+is cut off while legitimate clients from other IPs keep getting the application.
+Show both sides during one sustained attack.
+
+1. **(kali — attacker)** Keep a sustained flood running (long enough to test the
+   other source while mitigation is active):
+
+   ```
+   ab -n 500000 -c 100 -t 300 -l http://10.1.10.63/
+   ```
+2. **(kali — attacker)** From a second kali shell, send a manual request from the
+   same (blocked) source IP:
+
+   ```
+   curl -v --max-time 10 http://10.1.10.63/
+   ```
+
+   Expected: the connection **hangs and times out** (recv timeout). **Block All
+   drops/resets the attacker’s connections — it does not return a block page**, so
+   there is nothing to render. (Reducing the attack rate won’t change this; a
+   served page only appears with a *challenge* mitigation — Client-Side Integrity
+   or CAPTCHA — which expect a JS-capable browser, not `curl`.)
+3. **(superjump — legitimate client)** While the attack is **still running**, open
+   the in-browser **Firefox** on superjump (UDF **ACCESS > FIREFOX**) — a clientless
+   browser session that reaches the VIP from a **different source than the
+   attacker** — and browse to `http://10.1.10.63/`.
+
+   Expected: the full **Hackazon** page loads normally. Because its source is not
+   the blocked IP, the per-source mitigation never touches it — the virtual server
+   stays available to everyone except the attacker. *This is the core result of
+   the lab.*
+4. **(TMUI)** Cross-reference while both are in flight: in **Security > Event Logs
+   > DoS > Application Events**, open the attack’s **Suspicious entity** row — it
+   shows **Entity: 10.1.10.100** and that is the **only** entity listed — the
+   attacker’s IP is blocked while the Firefox client (a different source) is not.
+
+<Note>
+  TPS-based Block All applies to the **source IP** for the mitigation duration, so
+  legitimate users *sharing that IP* (e.g. behind the same NAT) are blocked too,
+  while clients from other IPs are unaffected — exactly what you just
+  demonstrated. For per-user rather than per-IP mitigation, see Behavioral DoS
+  (Lab 3), which targets individual bad actors rather than whole IPs.
+</Note>
+
+#### Questions
+
+- The `TPS Increased By 500%` threshold means blocking triggers when the
+   source rate is 5× the **baseline**. What is the baseline, and how is it
+   calculated in TPS-based mode?
+- How would you configure different thresholds for different URLs
+   (e.g., stricter for `/user/login` than for `/`)?

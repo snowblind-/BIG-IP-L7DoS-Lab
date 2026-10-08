@@ -1,0 +1,272 @@
+---
+title: "Lab 2: Stress-Based Detection"
+---
+
+Stress-based detection uses **server-side health signals** — response latency
+and error rates — to identify which clients are contributing to server stress,
+and throttles those sources proportionally. Unlike TPS-based mode (which blocks
+sources at a raw request rate), stress-based detection throttles sources
+*relative to the stress they cause*, making it less likely to penalize
+legitimate heavy users.
+
+| Property | TPS-based (Lab 1) | Stress-based (Lab 2) |
+| --- | --- | --- |
+| Trigger | Request rate | Server latency / error rate |
+| Granularity | Per source IP or URL | Per source contributing to stress |
+| Penalizes heavy-but-legitimate users | Possible | Less likely |
+| Requires baseline learning | No | Yes |
+| Effective against slow attacks | Limited | Yes |
+
+### Task 1: Create a Stress-Based DoS Profile and Switch the Virtual Server to It
+
+Rather than reuse Lab 1’s profile, build a **dedicated** stress-based profile from
+scratch and switch `vs-lab-dos` to it. A virtual server carries **one** DoS
+profile at a time, so attaching `lab-dos-stress` replaces `lab-dos-tps`; Task 5
+puts the shared profile back.
+
+1. **(TMUI)** Navigate to **Security > DoS Protection > Protection Profiles** and
+   click **Create**. Set **Name** = `lab-dos-stress`.
+2. Under **Application Security**, open **Behavioral & Stress-based (D)DoS
+   Detection** and set **Operation Mode** = **Blocking** and **Thresholds Mode** =
+   **Automatic**. Stress-based uses *auto-calculated* thresholds — the system learns
+   normal server stress, so there is no manual latency %% to enter. Leave
+   **TPS-based Detection** disabled: this profile detects by **server stress**, not
+   raw request rate. Configure only the **Stress-based** settings in this panel for
+   this lab — the Behavioral/ML engine (bad-actor behavior, request signatures) is
+   covered in Lab 3.
+3. Under **Stress-based Detection and Mitigation → By Source IP**, enable a
+   **two-step mitigation ladder** so you can watch mitigation *escalate* as the
+   attack persists: tick **Client Side Integrity Defense** (the gentler first step)
+   **and** **Request Blocking → Block All** (the harder second step). BIG-IP applies
+   the mildest enabled method first and escalates to the next after the Escalation
+   Period if the source keeps driving stress.
+
+   <Note>
+     Client Side Integrity Defense is a JavaScript challenge, so a non-JS client
+     (the curl/ab flood) cannot satisfy it and is dropped at that step; as the
+     flood keeps server stress high, mitigation then escalates to **Block All** —
+     the step-up you observe in Task 3.
+   </Note>
+4. **Prevention Duration** drives the escalation timing. The stress defaults are
+   long — Escalation 120 s / **De-escalation 7200 s (two hours)** — so mitigation
+   would never relax in lab time. Shorten **both** so the full cycle is visible:
+   **Escalation Period = 15 s** (how long mitigation stays at each step before
+   escalating) and **De-escalation Period = 30 s** (how long stress must stay normal
+   before mitigation relaxes). With these, mitigation steps from Client Side
+   Integrity Defense to Block All about 15 s into a sustained attack, and relaxes
+   ~30 s after it stops.
+
+   <Note>
+     Short periods make the demo snappy but can cause **flapping** (mitigation
+     toggling on/off) when real traffic hovers near the threshold — use longer
+     values in production.
+   </Note>
+5. Click **Finished**.
+
+   **(CLI equivalent)** — create the profile, add its Application Security
+   container, and arm the By Source IP stress tier. Set **Operation Mode** =
+   Blocking and **Thresholds Mode** = Automatic in the UI (step above); the tier
+   specifics below are the verified 17.5 keywords. Paste the `modify` as a
+   **single line** — tmsh rejects multi-line brace blocks:
+
+   ```
+   tmsh create security dos profile lab-dos-stress
+   tmsh modify security dos profile lab-dos-stress application add { lab-dos-stress { } }
+   tmsh modify security dos profile lab-dos-stress application modify { lab-dos-stress { stress-based { ip-rate-limiting enabled ip-client-side-defense enabled ip-request-blocking-mode block-all escalation-period 15 de-escalation-period 30 } } }
+   tmsh save sys config
+   ```
+
+   Confirm the tier is armed — `ip-rate-limiting enabled` is the By Source IP
+   toggle; if it is `disabled` nothing is evaluated and the attack is never
+   mitigated:
+
+   ```
+   tmsh list security dos profile lab-dos-stress application | grep -A80 "stress-based {" | grep -E "^ *ip-"
+   ```
+6. **Switch the virtual server to the new profile.** Navigate to **Local Traffic >
+   Virtual Servers > vs-lab-dos > Security > Policies**. Set **DoS Protection
+   Profile** = **Enabled** and select `lab-dos-stress` (this replaces
+   `lab-dos-tps`). Ensure **Log Profile** = **Enabled** with `L7-DOS_BOT_Logger`
+   in **Selected**, then **Update**.
+
+   **(CLI)** — a VS holds one DoS profile, so remove the TPS profile before adding
+   the stress profile; run the adds on separate lines:
+
+   ```
+   tmsh modify ltm virtual vs-lab-dos profiles delete { lab-dos-tps }
+   tmsh modify ltm virtual vs-lab-dos profiles add { lab-dos-stress }
+   tmsh modify ltm virtual vs-lab-dos security-log-profiles add { L7-DOS_BOT_Logger }
+   tmsh list ltm virtual vs-lab-dos profiles security-log-profiles
+   ```
+
+   <Note>
+     Automatic (stress) thresholds need a **learning period** of normal traffic
+     before they are effective — run the baseline (Task 2) first.
+   </Note>
+
+### Task 2: Establish a Latency Baseline
+
+1. **(kali)** Run the baseline traffic script to allow BIG-IP to learn normal
+   server response times:
+
+   ```
+   bash /home/ec2-user/lab/scripts/setup/baseline-traffic.sh http://10.1.10.63 300
+   ```
+
+   Allow this to run for at least 5 minutes.
+2. In the TMUI, navigate to **Security > Reporting > DoS > Dashboard** (set
+   **Real Time: ON**) and confirm server latency is being tracked under **Virtual
+   Servers Health** / **System Health**.
+
+### Task 3: Simulate a Slow Server Under Attack
+
+1. Open the **Web Shell** for the Hackazon server (UDF UI; mgmt `10.1.1.5`,
+   pool member `10.1.20.20`) — it drops you in as root. The backend is an
+   **Apache container**, so induce latency by starving the container’s CPU from
+   the host (no in-container tooling required):
+
+   ```
+   docker ps                                  # note the Hackazon container name/id
+   docker update --cpus=0.1 <hackazon-container>
+   ```
+
+   With only a fraction of a CPU, the container’s response times climb under the
+   attack load in Task 2 — that rising server latency is exactly what
+   stress-based detection keys on.
+
+   <Note>
+     This backend runs **Apache**, not nginx, so the older `limit_req_zone`
+     config edit does not apply. If your Docker build doesn’t support live
+     `--cpus` updates, peg the CPU from inside instead:
+     
+     ```
+     docker exec -d <hackazon-container> sh -c 'while :; do :; done'   # repeat a few times
+     ```
+     
+     Either way the goal is the same: make the backend respond slowly under load.
+   </Note>
+2. From the attack client, generate a high-concurrency load:
+
+   ```
+   bash /home/ec2-user/lab/scripts/attack/http-flood.sh http://10.1.10.63 90 80
+   ```
+
+   Run it long enough (here 90 s) to outlast the 15 s Escalation Period so the
+   mitigation steps up — then let it stop so you can watch the ~30 s de-escalation.
+3. Observe in **Security > Reporting > DoS > Dashboard** (Real Time: ON):
+
+   - under **Virtual Servers**, `vs-lab-dos` shows **Server Latency** climbing
+      above baseline with **1** attacking IP (Health stays *Good* — the box throttles
+      the attacker rather than falling over)
+   - the **Attacks** table lists the episode(s) with **Vector: Application**,
+      **Trigger: Source IP**, **Mitigation: Block** on `/Common/vs-lab-dos`. As the
+      attack persists the severity rises from **Low** to **High**, and the escalated
+      (Block All) episode shows thousands of **Blocked Transactions**; the lower
+      **Low** rows with 0 blocked are the earlier CSID phase / de-escalated episodes
+4. **Watch the mitigation escalate.** In **Security > Event Logs > DoS >
+   Application Events**, follow the episode for the attacking source: the first
+   events show **Client Side Integrity Defense** applied, and after ~15 s of
+   continued stress (the Escalation Period) the mitigation **escalates to Block
+   All**. About 30 s after the flood stops and latency returns to normal, the
+   De-escalation Period relaxes mitigation — the step down is logged too.
+
+   <Note>
+     Stress thresholds are automatic and need the Task 2 baseline first; exact
+     escalation timing varies with how fast the backend stress is sampled. If you
+     don’t see the step-up, extend the flood and confirm the Escalation Period is
+     15 s, and that the baseline learning period (Task 2) ran first.
+   </Note>
+
+<Note>
+  What indicates stress-based detection
+  
+    What indicates stress-based detection
+  
+  Stress-based detection is distinguished by *why* an episode fires, not merely
+  that traffic was mitigated. The tells, all visible in this run:
+  
+  - **It keys on server health, not request rate.** An episode is declared only
+     when **Server Latency** (or error rate) rises above the learned baseline — the
+     DoS Dashboard’s *Virtual Servers → Server Latency* for `vs-lab-dos` climbing
+     above normal is the trigger. **TPS-based detection is disabled** in this
+     profile, so request volume alone mitigates nothing; the backend has to actually
+     be stressed.
+  - **Cause and effect with the backend.** It is the `--cpus=0.1` throttle that
+     makes the attack register. Restore the CPU (`docker update --cpus=0`) with the
+     *same* flood still running and latency returns to baseline — the episode
+     **de-escalates** even though the clients never slowed down. That dependence on
+     server stress (not on client rate) is the defining signature; the same flood
+     against a healthy, full-CPU backend may not trigger at all.
+  - **Automatic, learned thresholds.** Thresholds Mode is **Automatic** — there is
+     no manual TPS number; the system compares live latency to what it learned during
+     the Task 2 baseline. No baseline ⇒ no “normal” to deviate from ⇒ no detection,
+     which is why the learning run is mandatory.
+  - **Targeted, proportional mitigation.** Only the sources *contributing to the
+     stress* are acted on, and only *while* the server is stressed: the attacker’s IP
+     is throttled then blocked (thousands of **Blocked Transactions**) while a
+     low-rate client on another IP (superjump’s Firefox) still gets **200** responses and VS
+     Health stays *Good*. A pure rate limiter acts on rate regardless of whether the
+     server is actually hurting.
+  - **In the Attacks table**, the episode reads **Vector: Application** with
+     **Trigger: Source IP** and a *latency-driven* start — contrast a TPS episode,
+     which starts the instant a rate threshold is crossed, stressed or not.
+</Note>
+
+### Task 4: Verify Proportional Throttling (attacker throttled, others served)
+
+1. **(superjump — legitimate client)** While the attack is still running, open the
+   in-browser **Firefox** on superjump (UDF **ACCESS > FIREFOX**, a different
+   source than the attacker) and browse to `http://10.1.10.63/` — the full
+   **Hackazon** page still loads. Stress-based mitigation throttles the sources
+   *causing* the latency, not legitimate clients.
+2. **(kali, low-rate)** Optionally quantify it — a low-rate client keeps normal
+   latency and **200** responses while the flood is throttled:
+
+   ```
+   for i in $(seq 1 10); do
+       curl -so /dev/null -w "Time: %{time_total}s Code: %{http_code}\n" http://10.1.10.63/
+       sleep 0.5
+   done
+   ```
+3. **(TMUI)** In **Security > Event Logs > DoS > Application Events**, the episode
+   shows **Detection Mode: DOS L7 attack** on a stress trigger; the **Suspicious
+   entity** rows name the sources contributing most to latency (the attacker).
+   Confirm the Firefox client’s source is *not* listed.
+4. Compare to Lab 1 (TPS): there, any source over the rate threshold is blocked
+   regardless of server impact; stress-based only mitigates when the server is
+   actually stressed and targets the heaviest contributors.
+
+### Task 5: Clean Up
+
+1. In the Hackazon **Web Shell**, remove the artificial stress — restore the
+   container’s CPU (`0` = no limit), or restart it if you pegged CPU inside:
+
+   ```
+   docker update --cpus=0 <hackazon-container>
+   # or, if you used the busy-loop fallback:  docker restart <hackazon-container>
+   ```
+2. Verify server response times return to baseline in **Security > Reporting >
+   DoS > Dashboard**.
+3. **Switch the virtual server back to the shared profile** for later labs —
+   detach `lab-dos-stress` and reattach `lab-dos-tps` (TMUI: *vs-lab-dos >
+   Security > Policies*, set **DoS Protection Profile** back to `lab-dos-tps`):
+
+   ```
+   tmsh modify ltm virtual vs-lab-dos profiles delete { lab-dos-stress }
+   tmsh modify ltm virtual vs-lab-dos profiles add { lab-dos-tps }
+   tmsh save sys config
+   ```
+
+   *(Optional)* delete the stress profile if you won’t reuse it:
+
+   ```
+   tmsh delete security dos profile lab-dos-stress
+   ```
+
+#### Questions
+
+- A legitimate user running an automated report that makes 200 requests in
+   10 seconds may cause server latency to rise. How does stress-based detection
+   handle this compared to TPS-based?
+- Stress-based detection de-escalates mitigation when latency returns to
+   normal. What is the risk if the de-escalation period is set too short?

@@ -1,0 +1,629 @@
+---
+title: "Lab 5: Proactive Bot Defense"
+---
+
+Proactive Bot Defense injects a JavaScript challenge that legitimate browsers
+execute transparently to earn a session cookie. Tools that cannot run
+JavaScript — scripts, `curl`, most bots — never earn the cookie and are
+mitigated.
+
+| Role | Address / access | Notes |
+| --- | --- | --- |
+| BIG-IP | `10.1.1.11` (TMUI / Web Shell) | 17.1.0.1 (BYOL) |
+| Attack client (kali) | `10.1.10.100` — Web Shell | Runs the `curl` tests; no JS engine, so it fails the challenge |
+| Legit client (win-client) | `10.1.10.4` — Guacamole RDP | Real browser — solves the JS challenge and passes |
+| Bot Defense VS | `vs-lab-bot` — `10.1.10.74` | Carries the standalone Bot Defense profile; the target the tests hit |
+| Backend | `Hackazon_pool` (member `10.1.20.20`) | Blueprint’s existing pool + live Hackazon member |
+
+<Note>
+  **Run-from key.** Every test/validation below is tagged with where to run it:
+  **(kali)** = kali attack client via its UDF **Web Shell** (`curl`);
+  **(win-client)** = the Windows client via **superjump Guacamole RDP** (a real
+  browser); **(TMUI)** = the BIG-IP GUI, reachable from any browser (win-client
+  or superjump). Configuration steps run on the BIG-IP (TMUI or Web Shell).
+</Note>
+
+This lab uses a **standalone Bot Defense profile** (`security bot-defense
+profile`) attached to `vs-lab-bot`. Unlike the bot-signature sub-section bundled
+inside a DoS profile — which can only *block or report* a signature category — the
+standalone profile provides the full feature set this lab demonstrates:
+
+- per-class actions (Browser / Trusted Bot / Untrusted Bot / Malicious Bot …)
+- **verify-before vs. verify-after** access (when the JS challenge is issued)
+- **search-engine (FCrDNS) verification** and **Unknown-class rate limiting**
+- custom bot signatures and granular allowlists
+
+(`configs/profiles/bot-defense-standalone.conf` is the reference config.)
+
+### Before vs. After Access Verification
+
+The single most important Bot Defense setting is *when* the JavaScript challenge
+is issued relative to the application seeing the request.
+
+| Verification action | Behaviour | Use when |
+| --- | --- | --- |
+| `browser-verify-before-access` | Challenge served **first**. The origin app never sees the request until the browser solves the challenge and presents a valid cookie. | Highest protection; login pages, checkout. |
+| `browser-verify-after-access-blocking` | Request is **passed to the app**; JS is injected into the response. If the next request fails the challenge it is mitigated. | Latency-sensitive paths where a one-request exposure is acceptable. |
+| `browser-verify-after-access-detection` | Same as above but **report-only** — failures are logged, never blocked. | Tuning / staging before enforcing. |
+| `browser-challenge-free-verification` | Header inspection only, **no JS challenge**. | APIs and clients that cannot run JavaScript. |
+
+The cookie flow is the same in every case: solve once, present the cookie on
+subsequent requests, and you are not re-challenged for the session.
+
+### Task 1: Create the Standalone Bot Defense Profile
+
+Build the profile in the 17.5 UI so every setting is explicit; the `tmsh` merge
+in the last note is the instructor fast-path that produces the same result. All
+steps are **(TMUI)** unless marked CLI.
+
+1. **General Settings.** Navigate to **Security > Bot Defense > Bot Profiles** and
+   click **Create**. Set:
+
+   - **Profile Name:** `lab-bot-defense`
+   - **Enforcement Mode:** **Blocking**
+   - **Profile Template:** **Strict** — sets strong defaults you then tune
+      (verify-before-access; block untrusted / suspicious / malicious / unknown;
+      DoS Attack Mitigation Mode enabled). *Relaxed* (challenge-free) and *Balanced*
+      (verify-after-access) are the gentler alternatives.
+   - Leave **Signature Staging upon Update** **Disabled**, **Enforcement Readiness
+      Period** 7 days, **Redirect to Pool** None, and **Response and Blocking
+      Pages** on **Default**.
+
+   <Info>Screenshot: **Bot Profile General Settings** (see the PDF/HTML guide).</Info>
+
+   *General Settings — name, Enforcement Mode = Blocking, Profile Template = Strict.*
+
+   **(CLI equivalent)**:
+
+   ```
+   tmsh create security bot-defense profile lab-bot-defense template strict enforcement-mode blocking description "L7DoS Lab - standalone bot defense"
+   ```
+2. **Bot Mitigation Settings** — the action applied *after* a client is classified.
+   With **Strict** the defaults are Trusted=Alarm, Untrusted=Block, Suspicious
+   Browser=Block, Malicious=Block, Unknown=Block. Each is a dropdown (**None /
+   Alarm / CAPTCHA / Block / Honeypot Page / Redirect to Pool / TCP Reset**). Tune
+   two classes so the gentler actions are demonstrated:
+
+   | Class | Action | Why |
+   | --- | --- | --- |
+   | Trusted Bot | Alarm | Verified good bots (search engines) — log, don’t block. |
+   | Untrusted Bot | CAPTCHA | Non-malicious tools/crawlers — challenge rather than hard-block. |
+   | Suspicious Browser | CAPTCHA | Let a real-but-odd browser prove itself. |
+   | Malicious Bot | Block | DoS tools / scanners — block outright. |
+   | Unknown | Block | Unclassified non-browser clients. |
+
+   Leave **DoS Attack Mitigation Mode = Enabled** (Strict default): during a DoS
+   attack it overrides the per-class actions to Browser=Verify-Before-Access,
+   Trusted=Alarm, everything else=Block (it requires a DoS protection profile to be
+   enabled).
+
+   <Info>Screenshot: **Bot Mitigation Settings per-class actions** (see the PDF/HTML guide).</Info>
+
+   *Per-class mitigation actions + Strict Mitigation Enforcement Cases.*
+
+   **(CLI equivalent)**:
+
+   ```
+   tmsh modify security bot-defense profile lab-bot-defense class-overrides replace-all-with { "Trusted Bot" { mitigation { action alarm } } "Untrusted Bot" { mitigation { action captcha } } "Suspicious Browser" { mitigation { action captcha } } "Malicious Bot" { mitigation { action block } } }
+   ```
+
+   <Note>
+     Paste each `tmsh` brace command as a **single line**. tmsh does not reliably
+     accept backslash-continued multi-line brace blocks pasted into the shell — it
+     errors with *“properties must be enclosed in braces.”*
+   </Note>
+3. **Browsers** — when/how the JavaScript challenge is issued:
+
+   - **Browser Access:** **Allow**
+   - **Browser Verification:** **Verify Before Access** — proactive: the challenge
+      is served first and the app only sees the request after the browser solves it.
+      This is the Strict default and the behaviour Tasks 2–3 demonstrate; switch to
+      **Verify After Access (Blocking/Detection)** to show the “after” variant.
+   - **Device ID Mode:** **Generate Before Access** (Strict default)
+   - Leave **Single Page Application** and **Cross Domain Requests** at the template
+      defaults unless the app needs them.
+
+   <Info>Screenshot: **Browsers - Browser Verification before access** (see the PDF/HTML guide).</Info>
+
+   *Browsers — Browser Verification = Verify Before Access.*
+4. **Signature Enforcement** — the installed bot signatures (2,600+), grouped by
+   **Bot Class** and **Bot Category**, each **Staged** or **Enforced**. Filter by
+   category and review: keep **Search Engine** / **Site Monitor** benign; select
+   the tooling categories — **HTTP Library**, **DOS Tool**, **Vulnerability
+   Scanner** — and click **Enforce** (use **Stage** to observe without blocking for
+   the readiness period first).
+
+   <Info>Screenshot: **Signature Enforcement list** (see the PDF/HTML guide).</Info>
+
+   *Signature Enforcement — enforce tooling categories; stage to observe first.*
+5. **Whitelist** — paths/sources exempt from mitigation and challenges (consulted
+   **first**). Click **Create** and add known-safe assets with **Mitigation** and
+   **Challenges** both **off**:
+
+   | Source | URL | Mitigation | Challenges |
+   | --- | --- | --- | --- |
+   | Any | `/favicon.ico` | off | off |
+   | Any | `/health` | off | off |
+
+   Do **not** whitelist the whole client subnet — it contains kali
+   (`10.1.10.100`) and would exempt the attacker.
+
+   <Info>Screenshot: **Whitelist entries** (see the PDF/HTML guide).</Info>
+
+   *Whitelist — safe URLs with mitigation and challenges disabled.*
+6. **Save** the profile, then **bind it** to the virtual server — Local Traffic >
+   Virtual Servers > `vs-lab-bot` > **Security > Policies**, set **Bot Defense
+   Profile** = `lab-bot-defense` > **Update**. **(CLI)**:
+
+   ```
+   tmsh modify ltm virtual vs-lab-bot profiles add { lab-bot-defense }
+   tmsh list ltm virtual vs-lab-bot profiles
+   ```
+7. **Attach the security log profile** — Bot Defense events only reach **Security >
+   Event Logs > Bot Defense** if `vs-lab-bot` carries a log profile. In *Security
+   > Policies* set **Log Profile** = **Enabled** and move **L7-DOS_BOT_Logger** into
+   *Selected* > **Update**. **(CLI)** (a duplicate-profile error just means it is
+   already attached):
+
+   ```
+   tmsh modify ltm virtual vs-lab-bot security-log-profiles add { L7-DOS_BOT_Logger }
+   tmsh list ltm virtual vs-lab-bot profiles security-log-profiles
+   ```
+
+   If a Bot Defense event log stays empty during this lab, a missing log profile on
+   the VS is the first thing to check (also the module’s
+   /module3-asm-waf/module3 *Before you begin* step).
+
+<Note>
+  **Instructor fast-path.** The whole profile is in
+  `configs/profiles/bot-defense-standalone.conf` — merge it instead of clicking
+  through, then bind:
+  
+  ```
+  tmsh load sys config merge file /var/tmp/bot-defense-standalone.conf
+  tmsh modify ltm virtual vs-lab-bot profiles add { lab-bot-defense }
+  ```
+  
+  The `.conf` also caps the **Trusted Bot** class with `rate-limit-tps 5` — a
+  throughput cap set on the class mitigation *alongside* its action (there is no
+  `rate-limit` action in 17.5). The UI Bot Mitigation dropdown sets the action
+  only; the `rate-limit-tps` cap is a CLI refinement (see Task 5).
+</Note>
+
+<Note>
+  **Mitigation precedence** (order BIG-IP consults): Whitelist → DoS Attack
+  Mitigation Mode → Microservices → Verified API Access → per-class profile
+  mitigation. A whitelisted path is never challenged, and during a DoS attack the
+  DoS-mode settings override the per-class actions.
+</Note>
+
+### Task 2: Demonstrate the Challenge — BEFORE access
+
+With `browser-verify-before-access` (the value shipped in the config), compare
+a script against a real browser:
+
+1. **(kali)** From the kali Web Shell, request the page with `curl`:
+
+   ```
+   curl -sv http://10.1.10.74/ 2>&1 | head -40
+   ```
+
+   Expected: the response body is the **JavaScript challenge**, not the app. The
+   origin server never received the request — BIG-IP answered first.
+2. **(win-client)** Open `http://10.1.10.74/` in a real browser (Guacamole RDP
+   to the Windows client). It briefly renders the challenge, runs the JS,
+   receives a `TS<...>` cookie, and is forwarded to the app in under two
+   seconds. Reloading does not re-challenge (cookie is presented).
+3. **(win-client)** Inspect the cookie in the browser’s **DevTools > Application
+   > Cookies** — note the `TS` prefixed bot-defense cookie.
+
+This kali-vs-win-client contrast *is* the demonstration: identical request, blocked
+for the script, transparent for the browser.
+
+### Task 3: Demonstrate the Challenge — AFTER access
+
+*Configuration (BIG-IP).* Switch the Browser class to after-access and compare:
+
+```
+tmsh modify security bot-defense profile lab-bot-defense class-overrides modify { Browser { verification { action browser-verify-after-access-blocking } } }
+```
+
+1. **(kali)** Repeat the `curl` from Task 2. This time the **application
+   response is returned** with the verification JavaScript injected into it — the
+   app *did* see the first request. `curl` cannot solve the JS, so the **next**
+   request is mitigated.
+2. **(TMUI)** Confirm the difference in **Security > Event Logs > Bot Defense >
+   Bot Requests**: before-access shows mitigation on the *first* request;
+   after-access shows the first request passed and the *second* mitigated.
+3. *Configuration (BIG-IP).* Restore the proactive setting when done:
+
+   ```
+   tmsh modify security bot-defense profile lab-bot-defense class-overrides modify { Browser { verification { action browser-verify-before-access } } }
+   ```
+
+### Task 4: Bot Exceptions by Category and Signature
+
+The standalone profile allows specific bots while blocking others (Search Engine
+/ Site Monitor `none`; Crawler `alarm`; HTTP Library / DOS Tool `block`).
+
+1. **(kali)** Send a known search-engine user-agent and confirm it is
+   **allowed** (Search Engine category = `none`):
+
+   ```
+   curl -so /dev/null -w "%{http_code}\n" \
+        -A "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" \
+        http://10.1.10.74/
+   ```
+2. **(kali)** Send an HTTP-library user-agent and confirm it is **blocked**:
+
+   ```
+   curl -so /dev/null -w "%{http_code}\n" \
+        -A "python-requests/2.28.0" \
+        http://10.1.10.74/
+   ```
+3. **(TMUI)** Check classification in **Security > Event Logs > Bot Defense >
+   Bot Requests** — note the *Bot Signature* and *Bot Category* columns.
+
+### Task 5: Search-Engine Verification — Masquerade, Verified, and Rate-Limiting Unknown
+
+A client that merely *claims* to be Googlebot (via User-Agent) matches the Google
+search-engine signature and becomes a **candidate** Trusted Bot. Bot Defense then
+**verifies** it with forward-confirmed reverse DNS (FCrDNS):
+
+1. Reverse-DNS (PTR) lookup of the **source IP** — the hostname must be in the
+   search engine’s domain (`googlebot.com`).
+2. Forward-confirm (A) lookup of that hostname — it must resolve back to the same
+   source IP.
+
+The outcome drives classification:
+
+- **Pass** → **Trusted Bot** (action *Alarm*; allowed). Trusted bots are allowed by
+   design — they **cannot be blocked or rate-limited** (`action rate-limit` is
+   rejected on Trusted Bot).
+- **Fail** → **Malicious Bot**, anomaly *Search Engine Verification Failed* →
+   **blocked regardless of class configuration**. Copying a good bot’s UA does not
+   make you trusted — it gets you blocked.
+
+Rate-limiting, meanwhile, is a mitigation for the **Unknown** class (it is the
+Balanced-template default for Unknown), *not* for trusted/verified bots. This task
+shows all three: a masquerader blocked, a verified bot allowed, and the Unknown
+class rate-limited.
+
+#### Step 0 — Stand up DNS for verification
+
+Because verification is reverse-DNS, BIG-IP needs a **DNS Resolver** reachable over
+the TMM/data-plane interface, and a DNS server that answers the `googlebot` PTR/A
+records. In this lab, **kali** hosts a tiny responder
+(`scripts/setup/labdns.py`) that answers exactly:
+
+- `PTR 10.1.10.100` → `crawl-lab-100.googlebot.com` and the matching forward
+   `A` back to `10.1.10.100` (so `10.1.10.100` **verifies**)
+- nothing for `10.1.10.200` (so `10.1.10.200` stays a **masquerader**)
+
+1. **(kali)** Start the responder (runs on Python 2 or 3; needs root for port 53):
+
+   ```
+   cp /home/ec2-user/lab/scripts/setup/labdns.py /home/ec2-user/labdns.py
+   pkill -f labdns.py 2>/dev/null
+   nohup python /home/ec2-user/labdns.py >/var/log/labdns.log 2>&1 &
+   ss -lunp | grep ':53'            # confirm it is listening on 0.0.0.0:53
+   tail -f /var/log/labdns.log      # watch queries arrive (leave running)
+   ```
+
+   If `:53` is already held, stop the local stub first:
+   `systemctl stop systemd-resolved`.
+2. **(BIG-IP)** Point a DNS Resolver’s catch-all zone at kali. This blueprint ships
+   a resolver named `f5-aws-dns` (used for Device ID+/idservice) — add a `.`
+   forward zone to it so reverse lookups go to kali, and disable query-case
+   randomization (dnsmasq-style servers lowercase replies, which breaks
+   verification). **(TMUI)** Network > DNS Resolvers > DNS Resolver List >
+   *f5-aws-dns*: add Forward Zone `.` with nameserver `10.1.10.100:53`, and set
+   **Randomize Query Character Case** = *disabled*. **(CLI)**:
+
+   ```
+   tmsh modify net dns-resolver f5-aws-dns randomize-query-name-case no forward-zones add { . { nameservers add { 10.1.10.100:53 { } } } }
+   tmsh save sys config
+   ```
+
+<Note>
+  **Resolver selection.** Bot Defense uses the **first** DNS Resolver on the route
+  domain associated with the traffic. If several resolvers exist on route-domain 0,
+  consolidate so the chosen one carries the `.` → kali zone; keep specific zones
+  (e.g. `amazonaws.com`, `idservice.net`) pointing at their real servers.
+  Lookups egress the **TMM/data-plane** interface (sourced from the BIG-IP self-IP,
+  e.g. `10.1.10.9`), *not* management — so the resolver target must be reachable
+  over TMM (kali’s `10.1.10.100` is on the connected client subnet).
+</Note>
+
+#### Step 1 — Masquerade: a fake Googlebot is blocked
+
+1. **(kali)** Send the Googlebot UA from `10.1.10.200` (which has **no** matching
+   PTR):
+
+   ```
+   curl --interface 10.1.10.200 -A "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" -so /dev/null http://10.1.10.74/
+   ```
+2. **(TMUI)** In **Security > Event Logs > Bot Defense > Bot Requests**, the entry
+   shows **Bot Class: Malicious Bot**, **Detected Anomalies: Search Engine
+   Verification Failed**, **Mitigation Action: Block**, **Request Status: Denied**.
+
+   <Info>Screenshot: **Masquerading Googlebot blocked** (see the PDF/HTML guide).</Info>
+
+   *Fake Googlebot from an unverified IP → Malicious Bot, verification failed, denied.*
+
+#### Step 2 — Verified: a real-looking Googlebot is trusted
+
+1. **(kali)** Send the same UA from `10.1.10.100` (PTR faked to
+   `crawl-lab-100.googlebot.com`):
+
+   ```
+   curl --interface 10.1.10.100 -A "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" -so /dev/null http://10.1.10.74/
+   ```
+
+   Watch the responder log — both lookups must answer (PTR then forward-confirm):
+
+   ```
+   q 100.10.1.10.in-addr.arpa type=12 from 10.1.10.9 -> ANSWER
+   q crawl-lab-100.googlebot.com type=1 from 10.1.10.9 -> ANSWER
+   ```
+2. **(TMUI)** The entry now shows **Bot Class: Trusted Bot**, **Bot Categories:
+   Search Engine**, **Detected Anomalies: N/A**, **Mitigation Action: Alarm** —
+   allowed. A verified search engine is trusted; it is neither blocked nor
+   rate-limited.
+
+   <Info>Screenshot: **Verified Googlebot classified Trusted Bot** (see the PDF/HTML guide).</Info>
+
+   *Same UA from a PTR-verified IP → Trusted Bot, Search Engine, allowed (Alarm).*
+
+<Note>
+  **Negative cache.** The resolver caches results, including failures. The first
+  request right after you fix DNS may still show the old *verification failed*
+  verdict until the cached entry ages out — re-run, or test from a source that has
+  not been classified yet.
+</Note>
+
+#### Step 3 — Rate-limit the Unknown class
+
+Rate limiting is available on the **Unknown** class (not on trusted/verified bots).
+In the **Strict** template Unknown defaults to *Block*; switch it to **Rate Limit**
+with a low cap so a single lab client trips it.
+
+1. **(TMUI)** *Bot Mitigation Settings* → **Unknown** → **Rate Limit for** `5`
+   **transactions per second**. **(CLI)** — note `add` (creates the override) and
+   that `action rate-limit` is valid only for Unknown:
+
+   ```
+   tmsh modify security bot-defense profile lab-bot-defense class-overrides add { Unknown { mitigation { action rate-limit rate-limit-tps 5 } } }
+   ```
+
+   <Info>Screenshot: **Unknown class set to Rate Limit for 5 tps** (see the PDF/HTML guide).</Info>
+
+   *Bot Mitigation Settings — Unknown = Rate Limit for 5 transactions per second.*
+2. **(kali)** Drive traffic that classifies as **Unknown** — use a neutral UA (a
+   tool UA like `curl/8.x` matches an HTTP-Library signature and lands in
+   *Untrusted*). Confirm the class on one request first, then exceed 5 TPS:
+
+   ```
+   curl --interface 10.1.10.200 -A "labclient/1.0" -so /dev/null http://10.1.10.74/
+   for i in $(seq 1 300); do curl --interface 10.1.10.200 -A "labclient/1.0" -so /dev/null http://10.1.10.74/ & done; wait
+   ```
+3. **(TMUI)** Above 5 TPS, over-limit requests are denied. Open an entry’s
+   **Mitigation Action** detail: **Configured Action: Rate Limit**, **Actual
+   Action: TCP Reset**, **Actual Action Reason: Rate Limit Request (TCP Reset)**,
+   **Request Status: Denied**. Traffic *up to* the cap is allowed — rate limiting
+   throttles, it does not flat-block.
+
+   <Info>Screenshot: **Unknown over-limit request rate-limited via TCP reset** (see the PDF/HTML guide).</Info>
+
+   *Over-limit Unknown request → Rate Limit enforced as TCP Reset (Denied).*
+
+#### Step 4 — Teardown
+
+Restore the profile and remove the lab DNS plumbing so other labs are unaffected:
+
+```
+tmsh modify security bot-defense profile lab-bot-defense class-overrides modify { Unknown { mitigation { action block } } }
+tmsh modify net dns-resolver f5-aws-dns forward-zones delete { . }
+tmsh save sys config
+```
+
+On kali, stop the responder: `pkill -f labdns.py`.
+
+### Task 6: Custom Bot Signature and Policy Exception
+
+Beyond the built-in signatures, you can author a **custom bot signature** to
+catch a specific tool, then add a **policy exception** so a trusted case that
+would otherwise match is let through.
+
+#### Step 1 — Create the custom signature *(Configuration — BIG-IP)*
+
+1. **Security > Bot Defense > Bot Signatures > Bot Signatures List > Create**
+   (older builds: **Security > Options > DoS Protection > Bot Signatures List**).
+2. Configure:
+
+   | Field | Value |
+   | --- | --- |
+   | Name | `lab-scraper` |
+   | Category | `DOS Tool` (a category the profile blocks) |
+   | Rule (Simple Edit Mode) | **User-agent** → **contains** → `labscraper` |
+   | Risk | Medium |
+
+   CLI equivalent:
+
+   ```
+   tmsh create security bot-defense signature lab-scraper category "DOS Tool" risk medium user-agent { match-type contains search-string labscraper }
+   ```
+
+<Warning>
+  New custom signatures are placed in **staging** (logged, not blocked) for the
+  profile’s *Enforcement Readiness Period*. To see it **block** immediately,
+  enforce the signature (or set the readiness period to 0) on the profile;
+  otherwise the first validation shows the match in the logs while still passing
+  traffic.
+</Warning>
+
+#### Step 2 — Validate detection
+
+1. **(kali)** Send the matching user-agent:
+
+   ```
+   curl -so /dev/null -w "%{http_code}\n" -A "labscraper/1.0" http://10.1.10.74/
+   ```
+
+   Expected (once enforced): **blocked**. In staging: allowed but logged.
+2. **(win-client)** Browse `http://10.1.10.74/` normally in the Windows
+   client’s browser. Expected: **allowed** — a real browser’s user-agent does not
+   contain `labscraper`, so the custom signature does not match. (Confirms the
+   signature is specific, not blanket.)
+3. **(TMUI)** In **Security > Event Logs > Bot Defense > Bot Requests**, confirm
+   the kali request matched **Bot Signature = lab-scraper** and the win-client
+   request did not.
+
+#### Step 3 — Add a policy exception *(Configuration — BIG-IP)*
+
+Suppose an internal tool legitimately uses that user-agent. Add a **Signature
+Exception** so the policy no longer mitigates `lab-scraper`:
+
+- **UI:** open the `lab-bot-defense` profile > **Signature Exceptions** (or
+   *Bot Mitigation Exceptions*) > **Add**, select `lab-scraper`, action
+   **None**, save.
+- **CLI:**
+
+   ```
+   tmsh modify security bot-defense profile lab-bot-defense signature-overrides add { lab-scraper { action none } }
+   ```
+
+#### Step 4 — Validate the exception
+
+1. **(kali)** Repeat the matching request:
+
+   ```
+   curl -so /dev/null -w "%{http_code}\n" -A "labscraper/1.0" http://10.1.10.74/
+   ```
+
+   Expected: **allowed** now — the exception overrides the category block for
+   this signature.
+2. **(TMUI)** In **Bot Requests**, the same signature now shows action
+   **none / allowed** instead of blocked.
+3. *Cleanup (BIG-IP), optional* — remove the exception to restore blocking:
+
+   ```
+   tmsh modify security bot-defense profile lab-bot-defense signature-overrides delete { lab-scraper }
+   ```
+
+### Task 7: The JS Challenge — Automation Is Gated, a Real Browser Passes
+
+Tasks 2–3 showed *when* the challenge is issued. This task shows the *outcome*:
+non-browser automation never solves it and is classified/mitigated, while a real
+browser solves it transparently and is classified **Browser**.
+
+<Note>
+  **Why the demo uses two sources.** Solving a modern Bot Defense JS challenge
+  needs a current browser engine. The lab’s kali image cannot run one (Firefox ESR
+  45 has no headless mode; a 2025 Chrome needs a newer glibc/NSS than the image
+  provides), so the **automation** half runs from kali and the **real-browser**
+  half runs from **superjump**, whose in-browser Firefox is current. A *scripted
+  headless* browser that solves the challenge yet is still flagged as automation
+  requires a modern engine — `scripts/attack/js-challenge-client.sh` carries a
+  commented, version-guarded Chrome-for-Testing block that activates if the image
+  is ever upgraded.
+</Note>
+
+#### Part A — Automation from kali (gated)
+
+1. **(kali)** Run the client against `vs-lab-bot`:
+
+   ```
+   bash /home/ec2-user/lab/scripts/attack/js-challenge-client.sh http://10.1.10.74/
+   ```
+
+   It shows `curl` receiving the **JS challenge page** (not the app), then sends
+   three client identities and prints the classification to expect for each.
+2. **(TMUI)** In **Security > Event Logs > Bot Defense > Bot Requests**, confirm
+   each kali source:
+
+   - bare `Mozilla/5.0` → **Malicious Bot / Exploit Tool** → blocked (a sparse UA
+      matches an exploit-tool signature)
+   - `labclient/1.0` → **Unknown** → rate-limited, if Unknown = Rate Limit (Task 5)
+   - Googlebot UA → **Trusted Bot** if the source PTR verifies (Task 5, Step 2), or
+      **Malicious Bot / Search Engine Verification Failed** if not (Step 1)
+
+   None of these solve the challenge — a script has no JS engine.
+
+   <Info>Screenshot: **Automation from kali is classified and mitigated** (see the PDF/HTML guide).</Info>
+
+   *Non-browser automation from kali → classified and mitigated; it never reaches the app.*
+
+#### Part B — A real browser from superjump (passes)
+
+1. **(superjump)** Open the in-browser Firefox (**ACCESS > FIREFOX**) and browse to
+   `http://10.1.10.74/`. It renders the challenge briefly, runs the JS, receives a
+   `TS*` cookie, and loads the Hackazon app. Reloading does not re-challenge.
+2. **(TMUI)** In **Bot Requests**, find the entry from superjump’s source
+   (`10.1.1.8`): **Bot Class: Browser**, **Request Status: Accepted**, **Detected
+   Anomalies: N/A**. The browser also pulls page assets (`/favicon.ico`,
+   `/fonts/...`, `/products_pictures/...`) — all **Accepted / Browser** — which a
+   script never does.
+
+   <Info>Screenshot: **Real browser from superjump classified Browser and accepted** (see the PDF/HTML guide).</Info>
+
+   *superjump’s real browser solves the challenge → Browser (verified); app and assets accepted.*
+
+**The lesson.** Identical requests, opposite outcomes: the JS challenge is
+transparent to a real browser and an impassable gate to a script. Passing the
+challenge is necessary but not sufficient — Proactive Bot Defense also applies
+browser-integrity and signature checks, so a JS-capable automation (a scripted
+headless browser) can still be flagged as **Suspicious Browser**. Demonstrating
+that live needs a modern headless engine this lab image cannot run (see the note
+above).
+
+#### Replay test — cross-source cookie binding
+
+A solved `TS*` cookie is signed and time-stamped (it cannot be forged or
+altered), but whether it can be **replayed** from another client depends on how
+strictly the deployment binds it (source IP, User-Agent, TLS fingerprint) and its
+TTL. Capture a real cookie from superjump, then replay it from kali.
+
+1. **(superjump)** After Part B loads the app, open **DevTools > Storage/Application
+   > Cookies** for `http://10.1.10.74` and copy the `TS*` cookie name and value.
+2. **(kali)** Replay that superjump-earned cookie from two kali sources (kali is a
+   *different host* than the solver):
+
+   ```
+   TS='TSPD_101=<paste-the-value>'
+   curl -s -o /dev/null -w 'kali .100: %{http_code}\n' -A 'Mozilla/5.0' --cookie "$TS" --interface 10.1.10.100 http://10.1.10.74/
+   curl -s -o /dev/null -w 'kali .200: %{http_code}\n' -A 'Mozilla/5.0' --cookie "$TS" --interface 10.1.10.200 http://10.1.10.74/
+   ```
+
+   Interpret (cross-check in **Bot Requests**):
+
+   - **both challenged/blocked** → the cookie is bound to the solver’s source and/or
+      fingerprint — it is **not replayable** to another host.
+   - **either passes** → the cookie is **replayable** to a different host within its
+      TTL (the classic scraper reuse).
+
+   (The automated `bot-cookie-replay.sh` solves and replays in one step, but it
+   needs a modern headless browser — so on this image use the manual capture above.)
+
+This is why F5 layers Device ID+, browser-integrity checks, and Distributed Cloud
+Bot Defense (whose telemetry is IP/browser-bound with **no** reusable token) on top
+of the challenge cookie.
+
+#### Questions
+
+- A mobile app using a WebView cannot reliably solve the browser JS challenge.
+   Which verification action (or class/allowlist entry) keeps PBD active for
+   browsers while letting the app through?
+- Your custom `lab-scraper` signature matches on user-agent. Give two ways an
+   attacker evades it, and which other Module 3 control would still catch each.
+- The Signature Exception in Step 3 disables `lab-scraper` globally. How would
+   you instead except *only* a trusted URL or source IP while still blocking that
+   user-agent everywhere else?
+- A real browser (superjump) solved the JS challenge and earned a cookie, while
+   kali automation could not. Why is passing the challenge *not* sufficient on its
+   own, and what additional Bot Defense signals would still distinguish a scripted
+   headless browser from a real one?
+- In the replay test, a cookie earned by the real browser (superjump) is replayed
+   from kali. What does each outcome — challenged vs. passed — tell you about how the
+   cookie is bound, and why does F5 prefer IP/fingerprint binding over a freely
+   replayable token?
