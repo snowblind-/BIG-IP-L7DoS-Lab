@@ -1,0 +1,45 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "BIG-IP L7 DoS Lab Guide",
+  "description": "Mitigating Layer 7 DoS and HTTP rate limiting on F5 BIG-IP with iRules, LTM policies, and ASM/Advanced WAF.",
+  "colors": {
+    "primary": "#C8102E",
+    "light": "#FF4757",
+    "dark": "#A00C24"
+  },
+  "favicon": "/mint/favicon.svg",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Lab Guide",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "mint/index",
+              "mint/setup/lab-topology"
+            ]
+          },
+          {
+            "group": "Module 1 — iRules",
+            "pages": [
+              "mint/module1-irules/lab1-per-ip-rate-limiting"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/snowblind-/BIG-IP-L7DoS-Lab"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/snowblind-/BIG-IP-L7DoS-Lab"
+    }
+  }
+}
