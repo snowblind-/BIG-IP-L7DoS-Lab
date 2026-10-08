@@ -56,3 +56,41 @@ try:
     _rinoh_rst_nodes.Literal_Block.build_flowable = _litblock_keep_together
 except Exception:
     pass
+
+# Inline literals (``code`` spans) are monospace tokens that rinohtype will only
+# break at whitespace or "/". A long literal with none of those (e.g.
+# ``browser-verify-after-access-detection`` or ``10.1.10.55:80``) cannot wrap,
+# so inside a narrow table cell it overflows the column border and runs into the
+# neighbouring cell. Insert zero-width-space (U+200B) break opportunities after
+# natural boundary characters so such literals wrap INSIDE their own cell.
+# U+200B is a break opportunity only: it emits no glyph and is not added to the
+# PDF text layer, so selecting/copying the literal yields the original text with
+# no stray character (verified with pdftotext). It only triggers a break when a
+# line would otherwise overflow, so short tokens (IPs that fit) are untouched.
+try:
+    import re as _rinoh_re
+    import rinoh as _rinoh_rt
+    from rinoh.frontend.rst import nodes as _rinoh_inline_nodes
+    _ZWSP = '​'
+    _ZWSP_BOUNDARY = _rinoh_re.compile(r'([-_./:,])')
+    _ZWSP_LONGRUN = _rinoh_re.compile(r'[^\s' + _ZWSP + r']{20,}')
+
+    def _insert_break_opportunities(text):
+        if not text or len(text) < 12:
+            return text
+        out = _ZWSP_BOUNDARY.sub(r'\1' + _ZWSP, text)
+
+        def _chunk(match):
+            run = match.group(0)
+            return _ZWSP.join(run[i:i + 14] for i in range(0, len(run), 14))
+
+        return _ZWSP_LONGRUN.sub(_chunk, out)
+
+    def _literal_build_styled_text(self, strip_leading_whitespace=False):
+        txt = getattr(self, 'text', '') or ''
+        return _rinoh_rt.SingleStyledText(_insert_break_opportunities(txt),
+                                          style=self.style_from_class)
+
+    _rinoh_inline_nodes.Literal.build_styled_text = _literal_build_styled_text
+except Exception:
+    pass
